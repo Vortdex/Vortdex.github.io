@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle, Wallet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount, useBalance, useReadContract, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
@@ -8,6 +8,7 @@ import SwapHistory, { addSwapTransaction } from "./SwapHistory";
 import { supportedChains } from "@/lib/wagmi";
 import { chainIcons } from "@/lib/chainIcons";
 import { getAllChains, getAdapterForChain } from "@/lib/swapAdapter";
+import { useAlephiumWallet } from "./AlephiumWalletProvider";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -290,11 +291,21 @@ const TokenRow = ({ token, isSelected, walletAddress, onClick }: {
 const SwapWidget = () => {
   const { address, isConnected, chain } = useAccount();
   const { switchChain } = useSwitchChain();
-  const [selectedChainId, setSelectedChainId] = useState(1);
+  const alphWallet = useAlephiumWallet();
+  const [selectedChainId, setSelectedChainId] = useState<number | string>(1);
   const [chainSelectorOpen, setChainSelectorOpen] = useState(false);
   const chainSelectorRef = useRef<HTMLDivElement>(null);
 
-  const tokens = useMemo(() => getTokensForChain(selectedChainId), [selectedChainId]);
+  const allChains = useMemo(() => getAllChains(), []);
+  const currentChainInfo = useMemo(() => allChains.find(c => c.id === selectedChainId), [allChains, selectedChainId]);
+  const isAlephium = currentChainInfo?.isEvm === false;
+
+  const adapter = useMemo(() => getAdapterForChain(selectedChainId), [selectedChainId]);
+  const tokens = useMemo(() => {
+    if (adapter) return adapter.getTokens(selectedChainId);
+    return getTokensForChain(Number(selectedChainId));
+  }, [selectedChainId, adapter]);
+
   const [fromToken, setFromToken] = useState(tokens[0]);
   const [toToken, setToToken] = useState(tokens[1]);
   const [fromAmount, setFromAmount] = useState("1.0");
@@ -309,6 +320,10 @@ const SwapWidget = () => {
   const [customSlippage, setCustomSlippage] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Active wallet address (EVM or Alephium)
+  const activeAddress = isAlephium ? alphWallet.address : address;
+  const activeIsConnected = isAlephium ? alphWallet.isConnected : isConnected;
 
   // Close settings on outside click
   useEffect(() => {
@@ -333,16 +348,19 @@ const SwapWidget = () => {
   }, []);
 
   // When chain changes, reset tokens
-  const handleChainSwitch = useCallback((chainId: number) => {
+  const handleChainSwitch = useCallback((chainId: number | string) => {
     setSelectedChainId(chainId);
-    const newTokens = getTokensForChain(chainId);
+    const adp = getAdapterForChain(chainId);
+    const newTokens = adp ? adp.getTokens(chainId) : getTokensForChain(Number(chainId));
     setFromToken(newTokens[0]);
     setToToken(newTokens[1]);
     setToAmount("");
     setRate(null);
     setQuoteData(null);
     setChainSelectorOpen(false);
-    if (isConnected) {
+    // Only switch EVM chain if it's an EVM chain
+    const chainInfo = getAllChains().find(c => c.id === chainId);
+    if (chainInfo?.isEvm && isConnected && typeof chainId === 'number') {
       switchChain?.({ chainId });
     }
   }, [isConnected, switchChain]);
@@ -399,25 +417,45 @@ const SwapWidget = () => {
     try {
       const sellAmount = parsedSellAmount().toString();
 
-      const { data, error: fnError } = await supabase.functions.invoke("swap-price", {
-        body: {
+      if (adapter) {
+        // Use adapter abstraction (works for both EVM and Alephium)
+        const priceResult = await adapter.getPrice({
           sellToken: fromToken.address,
           buyToken: toToken.address,
           sellAmount,
           chainId: selectedChainId,
-          ...(address && { taker: address }),
-        },
-      });
+          ...(activeAddress && { taker: activeAddress }),
+        });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data?.error) throw new Error(data.error);
+        if (priceResult.buyAmount) {
+          const buyAmountNum = Number(priceResult.buyAmount) / 10 ** toToken.decimals;
+          setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          const rateValue = buyAmountNum / parsedAmount;
+          setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          setQuoteData(priceResult.raw || priceResult);
+        }
+      } else {
+        // Fallback: direct edge function call for EVM
+        const { data, error: fnError } = await supabase.functions.invoke("swap-price", {
+          body: {
+            sellToken: fromToken.address,
+            buyToken: toToken.address,
+            sellAmount,
+            chainId: selectedChainId,
+            ...(address && { taker: address }),
+          },
+        });
 
-      if (data?.buyAmount) {
-        const buyAmountNum = Number(data.buyAmount) / 10 ** toToken.decimals;
-        setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
-        const rateValue = buyAmountNum / parsedAmount;
-        setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
-        setQuoteData(data);
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+
+        if (data?.buyAmount) {
+          const buyAmountNum = Number(data.buyAmount) / 10 ** toToken.decimals;
+          setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          const rateValue = buyAmountNum / parsedAmount;
+          setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          setQuoteData(data);
+        }
       }
     } catch (err: any) {
       setError(err.message || "Failed to fetch price");
@@ -427,7 +465,7 @@ const SwapWidget = () => {
     } finally {
       setLoading(false);
     }
-  }, [fromAmount, fromToken, toToken, address, parsedSellAmount]);
+  }, [fromAmount, fromToken, toToken, activeAddress, parsedSellAmount, adapter, selectedChainId]);
 
   useEffect(() => {
     const timer = setTimeout(fetchPrice, 500);
@@ -534,11 +572,16 @@ const SwapWidget = () => {
   const insufficientBalance = fromBalance !== null && parseFloat(fromAmount || "0") > parseFloat(fromBalance);
 
   const getButtonState = () => {
-    if (!isConnected) return { label: "Wallet verbinden", disabled: true, action: () => {} };
+    if (!activeIsConnected) {
+      if (isAlephium) {
+        return { label: "Alephium Wallet verbinden", disabled: false, action: () => alphWallet.connect() };
+      }
+      return { label: "Wallet verbinden", disabled: true, action: () => {} };
+    }
     if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
     if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
-    if (insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
-    if (requiresApproval) return {
+    if (!isAlephium && insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
+    if (!isAlephium && requiresApproval) return {
       label: approving ? "Approval wird gesendet..." : `Permit2 Approval für ${fromToken.symbol}`,
       disabled: approving,
       action: handleApprove,
@@ -552,12 +595,16 @@ const SwapWidget = () => {
 
   const buttonState = getButtonState();
 
+  const routeLabel = isAlephium ? 'Alephium DEX' : '0x Aggregator';
+
   return (
     <section id="swap" className="py-20">
       <div className="container mx-auto px-4 max-w-lg">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold mb-2">Instant Swap</h2>
-          <p className="text-muted-foreground font-mono text-sm">via 0x Aggregator — Best Price Routing</p>
+          <p className="text-muted-foreground font-mono text-sm">
+            {isAlephium ? 'via Alephium DEX — On-Chain Routing' : 'via 0x Aggregator — Best Price Routing'}
+          </p>
         </div>
 
         <div className="glass-card rounded-2xl p-6 pulse-glow">
@@ -578,14 +625,14 @@ const SwapWidget = () => {
                     alt=""
                     className="w-4 h-4 rounded-full object-cover"
                   />
-                  {supportedChains.find(c => c.id === selectedChainId)?.name || 'Ethereum'}
+                  {currentChainInfo?.name || 'Ethereum'}
                   <ChevronDown className={`w-3 h-3 transition-transform ${chainSelectorOpen ? "rotate-180" : ""}`} />
                 </button>
                 {chainSelectorOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                    {supportedChains.map((c) => (
+                    {allChains.map((c) => (
                       <button
-                        key={c.id}
+                        key={String(c.id)}
                         onClick={() => handleChainSwitch(c.id)}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-mono transition-all ${
                           c.id === selectedChainId
@@ -599,6 +646,7 @@ const SwapWidget = () => {
                           className="w-5 h-5 rounded-full object-cover"
                         />
                         <span>{c.name}</span>
+                        {!c.isEvm && <span className="text-[10px] text-accent ml-auto">non-EVM</span>}
                         {c.id === selectedChainId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
                       </button>
                     ))}
@@ -671,17 +719,24 @@ const SwapWidget = () => {
           <div className="bg-muted/50 rounded-xl p-4 mb-2">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Von</span>
-              <span className="font-mono flex items-center gap-1.5">
-                Balance: {formatBalance(fromBalance)}
-                {fromBalance && parseFloat(fromBalance) > 0 && (
-                  <button
-                    onClick={() => setFromAmount(fromBalance)}
-                    className="text-primary hover:underline text-xs"
-                  >
-                    MAX
-                  </button>
-                )}
-              </span>
+              {isAlephium ? (
+                <span className="font-mono flex items-center gap-1.5">
+                  <Wallet className="w-3 h-3" />
+                  {alphWallet.isConnected ? `${alphWallet.address?.slice(0, 6)}...${alphWallet.address?.slice(-4)}` : 'Nicht verbunden'}
+                </span>
+              ) : (
+                <span className="font-mono flex items-center gap-1.5">
+                  Balance: {formatBalance(fromBalance)}
+                  {fromBalance && parseFloat(fromBalance) > 0 && (
+                    <button
+                      onClick={() => setFromAmount(fromBalance)}
+                      className="text-primary hover:underline text-xs"
+                    >
+                      MAX
+                    </button>
+                  )}
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-3">
               <input
@@ -762,7 +817,7 @@ const SwapWidget = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded text-xs font-mono bg-primary/10 text-primary border border-primary/20">
-                  0x Aggregator
+                  {routeLabel}
                 </span>
               </div>
             </div>
