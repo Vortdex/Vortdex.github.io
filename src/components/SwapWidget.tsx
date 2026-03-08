@@ -417,25 +417,45 @@ const SwapWidget = () => {
     try {
       const sellAmount = parsedSellAmount().toString();
 
-      const { data, error: fnError } = await supabase.functions.invoke("swap-price", {
-        body: {
+      if (adapter) {
+        // Use adapter abstraction (works for both EVM and Alephium)
+        const priceResult = await adapter.getPrice({
           sellToken: fromToken.address,
           buyToken: toToken.address,
           sellAmount,
           chainId: selectedChainId,
-          ...(address && { taker: address }),
-        },
-      });
+          ...(activeAddress && { taker: activeAddress }),
+        });
 
-      if (fnError) throw new Error(fnError.message);
-      if (data?.error) throw new Error(data.error);
+        if (priceResult.buyAmount) {
+          const buyAmountNum = Number(priceResult.buyAmount) / 10 ** toToken.decimals;
+          setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          const rateValue = buyAmountNum / parsedAmount;
+          setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          setQuoteData(priceResult.raw || priceResult);
+        }
+      } else {
+        // Fallback: direct edge function call for EVM
+        const { data, error: fnError } = await supabase.functions.invoke("swap-price", {
+          body: {
+            sellToken: fromToken.address,
+            buyToken: toToken.address,
+            sellAmount,
+            chainId: selectedChainId,
+            ...(address && { taker: address }),
+          },
+        });
 
-      if (data?.buyAmount) {
-        const buyAmountNum = Number(data.buyAmount) / 10 ** toToken.decimals;
-        setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
-        const rateValue = buyAmountNum / parsedAmount;
-        setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
-        setQuoteData(data);
+        if (fnError) throw new Error(fnError.message);
+        if (data?.error) throw new Error(data.error);
+
+        if (data?.buyAmount) {
+          const buyAmountNum = Number(data.buyAmount) / 10 ** toToken.decimals;
+          setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          const rateValue = buyAmountNum / parsedAmount;
+          setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+          setQuoteData(data);
+        }
       }
     } catch (err: any) {
       setError(err.message || "Failed to fetch price");
@@ -445,7 +465,7 @@ const SwapWidget = () => {
     } finally {
       setLoading(false);
     }
-  }, [fromAmount, fromToken, toToken, address, parsedSellAmount]);
+  }, [fromAmount, fromToken, toToken, activeAddress, parsedSellAmount, adapter, selectedChainId]);
 
   useEffect(() => {
     const timer = setTimeout(fetchPrice, 500);
