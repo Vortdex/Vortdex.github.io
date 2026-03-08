@@ -29,7 +29,10 @@ const Navbar = () => {
             </a>
           ))}
         </div>
-        <WalletButton />
+        <div className="flex items-center gap-2">
+          <WorldWalletButton />
+          <WalletButton />
+        </div>
       </div>
     </nav>
   );
