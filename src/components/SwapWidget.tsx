@@ -719,8 +719,24 @@ const SwapWidget = () => {
           <div className="bg-muted/50 rounded-xl p-4 mb-2">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Von</span>
-              <span className="font-mono flex items-center gap-1.5">
-                Balance: {formatBalance(fromBalance)}
+              {isAlephium ? (
+                <span className="font-mono flex items-center gap-1.5">
+                  <Wallet className="w-3 h-3" />
+                  {alphWallet.isConnected ? `${alphWallet.address?.slice(0, 6)}...${alphWallet.address?.slice(-4)}` : 'Nicht verbunden'}
+                </span>
+              ) : (
+                <span className="font-mono flex items-center gap-1.5">
+                  Balance: {formatBalance(fromBalance)}
+                  {fromBalance && parseFloat(fromBalance) > 0 && (
+                    <button
+                      onClick={() => setFromAmount(fromBalance)}
+                      className="text-primary hover:underline text-xs"
+                    >
+                      MAX
+                    </button>
+                  )}
+                </span>
+              )}
                 {fromBalance && parseFloat(fromBalance) > 0 && (
                   <button
                     onClick={() => setFromAmount(fromBalance)}
