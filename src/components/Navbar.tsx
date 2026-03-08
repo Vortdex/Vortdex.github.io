@@ -1,5 +1,6 @@
 import { Activity } from "lucide-react";
 import WalletButton from "@/components/WalletButton";
+import WorldWalletButton from "@/components/WorldWalletButton";
 
 const Navbar = () => {
   return (
@@ -28,7 +29,10 @@ const Navbar = () => {
             </a>
           ))}
         </div>
-        <WalletButton />
+        <div className="flex items-center gap-2">
+          <WorldWalletButton />
+          <WalletButton />
+        </div>
       </div>
     </nav>
   );

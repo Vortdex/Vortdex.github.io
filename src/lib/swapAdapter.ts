@@ -85,6 +85,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'UNI', name: 'Uniswap', address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', decimals: 18, color: 'hsl(330, 80%, 60%)' },
     { symbol: 'AAVE', name: 'Aave', address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', decimals: 18, color: 'hsl(270, 60%, 55%)' },
     { symbol: 'LDO', name: 'Lido DAO', address: '0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32', decimals: 18, color: 'hsl(195, 80%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0x163f8C2467924be0ae7B5347228CABF260318753', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   42161: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(210, 80%, 55%)' },
@@ -93,6 +94,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'ARB', name: 'Arbitrum', address: '0x912CE59144191C1204E64559FE8253a0e49E6548', decimals: 18, color: 'hsl(210, 80%, 55%)' },
     { symbol: 'WBTC', name: 'Wrapped Bitcoin', address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', decimals: 8, color: 'hsl(30, 90%, 55%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', decimals: 18, color: 'hsl(220, 60%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0xB0fFa8000886e57F86dd5264b987B9a11441FBf1', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   137: [
     { symbol: 'MATIC', name: 'Polygon', address: NATIVE_ETH, decimals: 18, color: 'hsl(265, 80%, 55%)' },
@@ -100,6 +102,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'USDT', name: 'Tether', address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', decimals: 6, color: 'hsl(160, 80%, 45%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', decimals: 18, color: 'hsl(220, 60%, 55%)' },
     { symbol: 'WBTC', name: 'Wrapped Bitcoin', address: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', decimals: 8, color: 'hsl(30, 90%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0x1e0049783f008A0085193E00003D00cd54003c71', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   10: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(0, 80%, 55%)' },
@@ -107,12 +110,14 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'OP', name: 'Optimism', address: '0x4200000000000000000000000000000000000042', decimals: 18, color: 'hsl(0, 80%, 55%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x4200000000000000000000000000000000000006', decimals: 18, color: 'hsl(220, 60%, 55%)' },
     { symbol: 'USDT', name: 'Tether', address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', decimals: 6, color: 'hsl(160, 80%, 45%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0xdC6fF44d5d932Cbd77B52E5612Ba0529DC6226F1', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   8453: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(220, 80%, 55%)' },
     { symbol: 'USDC', name: 'USD Coin', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, color: 'hsl(210, 80%, 55%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x4200000000000000000000000000000000000006', decimals: 18, color: 'hsl(220, 60%, 55%)' },
     { symbol: 'cbBTC', name: 'Coinbase BTC', address: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', decimals: 8, color: 'hsl(30, 90%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   480: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(160, 70%, 50%)' },
