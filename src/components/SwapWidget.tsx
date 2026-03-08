@@ -255,6 +255,41 @@ const SwapWidget = () => {
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quoteData, setQuoteData] = useState<any>(null);
+  const [slippage, setSlippage] = useState(1);
+  const [customSlippage, setCustomSlippage] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Close settings on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Compute price impact from quote data
+  const priceImpact = (() => {
+    if (!quoteData || !fromAmount) return null;
+    const sellAmountNum = parseFloat(fromAmount);
+    if (sellAmountNum <= 0) return null;
+    const buyAmountRaw = Number(quoteData.buyAmount) / 10 ** toToken.decimals;
+    const totalBeforeFees = buyAmountRaw +
+      (quoteData.fees?.integratorFee?.amount ? Number(quoteData.fees.integratorFee.amount) / 10 ** toToken.decimals : 0) +
+      (quoteData.fees?.zeroExFee?.amount ? Number(quoteData.fees.zeroExFee.amount) / 10 ** toToken.decimals : 0);
+    // Estimate market rate from first fill proportion — simplified: compare minBuyAmount vs buyAmount
+    if (quoteData.minBuyAmount) {
+      const minBuy = Number(quoteData.minBuyAmount) / 10 ** toToken.decimals;
+      const impact = ((totalBeforeFees - buyAmountRaw) / totalBeforeFees) * 100;
+      return Math.abs(impact);
+    }
+    return null;
+  })();
+
+  const priceImpactSeverity = priceImpact === null ? "none" : priceImpact < 1 ? "low" : priceImpact < 3 ? "medium" : "high";
 
   const fromBalance = useTokenBalance(fromToken, address as Address | undefined);
   const toBalance = useTokenBalance(toToken, address as Address | undefined);
