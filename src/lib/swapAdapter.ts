@@ -188,10 +188,11 @@ export interface AlephiumDexBackend {
 // ─── Ayin DEX Backend ────────────────────────────────────────
 
 const AYIN_TOKENS: SwapToken[] = [
-  { symbol: 'ALPH', name: 'Alephium', address: 'native', decimals: 18, color: 'hsl(165, 70%, 45%)' },
-  { symbol: 'USDT', name: 'Tether (Alephium)', address: 'zSRgc7goAYUgYsEBYDjp4EMRHieZ5wXBnpfubFpEhDFo', decimals: 6, color: 'hsl(160, 80%, 45%)' },
-  { symbol: 'WETH', name: 'Wrapped ETH (Alephium)', address: 'vT49PY8ksoUL6NcXiZ1t2wAmC7tTPRfFfER8n3UCLvXy', decimals: 18, color: 'hsl(220, 60%, 55%)' },
-  { symbol: 'AYIN', name: 'Ayin', address: 'vP6XSUyjmgWCB2B9tD5Rqun56WJqDdExWnfwZVEqzhQb', decimals: 18, color: 'hsl(30, 80%, 55%)' },
+  { symbol: 'ALPH', name: 'Alephium', address: 'ALPH', decimals: 18, color: 'hsl(165, 70%, 45%)' },
+  { symbol: 'USDT', name: 'Tether (AlphBridge)', address: 'USDT', decimals: 6, color: 'hsl(160, 80%, 45%)' },
+  { symbol: 'USDC', name: 'USD Coin (AlphBridge)', address: 'USDC', decimals: 6, color: 'hsl(210, 80%, 55%)' },
+  { symbol: 'WETH', name: 'Wrapped ETH (AlphBridge)', address: 'WETH', decimals: 18, color: 'hsl(220, 60%, 55%)' },
+  { symbol: 'AYIN', name: 'Ayin', address: 'AYIN', decimals: 18, color: 'hsl(30, 80%, 55%)' },
 ];
 
 export class AyinDexBackend implements AlephiumDexBackend {
@@ -235,12 +236,13 @@ export class ElexiumDexBackend implements AlephiumDexBackend {
 // ─── Official Alephium DEX Backend (Primary) ─────────────────
 
 const ALPH_DEX_TOKENS: SwapToken[] = [
-  { symbol: 'ALPH', name: 'Alephium', address: 'native', decimals: 18, color: 'hsl(165, 70%, 45%)' },
-  { symbol: 'USDT', name: 'Tether (Alephium)', address: 'zSRgc7goAYUgYsEBYDjp4EMRHieZ5wXBnpfubFpEhDFo', decimals: 6, color: 'hsl(160, 80%, 45%)' },
-  { symbol: 'WETH', name: 'Wrapped ETH (Alephium)', address: 'vT49PY8ksoUL6NcXiZ1t2wAmC7tTPRfFfER8n3UCLvXy', decimals: 18, color: 'hsl(220, 60%, 55%)' },
-  { symbol: 'AYIN', name: 'Ayin', address: 'vP6XSUyjmgWCB2B9tD5Rqun56WJqDdExWnfwZVEqzhQb', decimals: 18, color: 'hsl(30, 80%, 55%)' },
-  { symbol: 'WBTC', name: 'Wrapped BTC (Alephium)', address: '27Ub32AhfC7A2oDeBP5Jb14A1MCAJEMfGndoPTAP7goqr', decimals: 8, color: 'hsl(30, 90%, 55%)' },
-  { symbol: 'DAI', name: 'Dai (Alephium)', address: 'xUTp3RXGJ1fJpCGqsAY6GgyfRQ3WQ1MdcYR1SiwndAbR', decimals: 18, color: 'hsl(40, 90%, 55%)' },
+  { symbol: 'ALPH', name: 'Alephium', address: 'ALPH', decimals: 18, color: 'hsl(165, 70%, 45%)' },
+  { symbol: 'USDT', name: 'Tether (AlphBridge)', address: 'USDT', decimals: 6, color: 'hsl(160, 80%, 45%)' },
+  { symbol: 'USDC', name: 'USD Coin (AlphBridge)', address: 'USDC', decimals: 6, color: 'hsl(210, 80%, 55%)' },
+  { symbol: 'WETH', name: 'Wrapped ETH (AlphBridge)', address: 'WETH', decimals: 18, color: 'hsl(220, 60%, 55%)' },
+  { symbol: 'AYIN', name: 'Ayin', address: 'AYIN', decimals: 18, color: 'hsl(30, 80%, 55%)' },
+  { symbol: 'WBTC', name: 'Wrapped BTC (AlphBridge)', address: 'WBTC', decimals: 8, color: 'hsl(30, 90%, 55%)' },
+  { symbol: 'DAI', name: 'Dai (AlphBridge)', address: 'DAI', decimals: 18, color: 'hsl(40, 90%, 55%)' },
 ];
 
 export class AlephiumOfficialDexBackend implements AlephiumDexBackend {

@@ -1,12 +1,9 @@
 /**
- * swap-alephium — Edge function proxy for Alephium token swaps.
+ * swap-alephium — Edge function for Alephium DEX swaps using on-chain AMM pool reserves.
  *
- * Uses CoinGecko price feeds + Alephium node to:
- *   1. Fetch token pair pricing via market data
- *   2. Calculate swap output with AMM-style pricing
- *   3. Apply 0.1% protocol fee (10 bps) on all operations
- *
- * Supports both /price (indicative) and /quote (executable) modes.
+ * Queries Ayin DEX AMM pool balances directly from the Alephium mainnet node,
+ * then calculates swap output using the constant-product (x*y=k) formula.
+ * Applies a 0.1% protocol fee (10 bps) on all swaps.
  */
 
 const corsHeaders = {
@@ -15,179 +12,181 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const FEE_BPS = 10; // 0.1% = 10 basis points
+const FEE_BPS = 10;
 const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
+const NODE_URL = 'https://node.mainnet.alephium.org';
+const ALPH_ID = '0000000000000000000000000000000000000000000000000000000000000000';
 
-// Known Alephium tokens with CoinGecko IDs for price lookup
-const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number; coingeckoId?: string }> = {
-  native: { symbol: 'ALPH', decimals: 18, coingeckoId: 'alephium' },
-  zSRgc7goAYUgYsEBYDjp4EMRHieZ5wXBnpfubFpEhDFo: { symbol: 'USDT', decimals: 6, coingeckoId: 'tether' },
-  vT49PY8ksoUL6NcXiZ1t2wAmC7tTPRfFfER8n3UCLvXy: { symbol: 'WETH', decimals: 18, coingeckoId: 'ethereum' },
-  vP6XSUyjmgWCB2B9tD5Rqun56WJqDdExWnfwZVEqzhQb: { symbol: 'AYIN', decimals: 18, coingeckoId: 'ayin' },
-  '27Ub32AhfC7A2oDeBP5Jb14A1MCAJEMfGndoPTAP7goqr': { symbol: 'WBTC', decimals: 8, coingeckoId: 'bitcoin' },
-  xUTp3RXGJ1fJpCGqsAY6GgyfRQ3WQ1MdcYR1SiwndAbR: { symbol: 'DAI', decimals: 18, coingeckoId: 'dai' },
+// ─── Token Registry (official hex token IDs from alephium/token-list) ────
+interface TokenMeta { symbol: string; decimals: number; id: string }
+
+const TOKENS: Record<string, TokenMeta> = {
+  ALPH:  { symbol: 'ALPH',  decimals: 18, id: ALPH_ID },
+  USDT:  { symbol: 'USDT',  decimals: 6,  id: '556d9582463fe44fbd108aedc9f409f69086dc78d994b88ea6c9e65f8bf98e00' },
+  USDC:  { symbol: 'USDC',  decimals: 6,  id: '722954d9067c5a5ad532746a024f2a9d7a18ed9b90e27d0a3a504962160b5600' },
+  WETH:  { symbol: 'WETH',  decimals: 18, id: '19246e8c2899bc258a1156e08466e3cdd3323da756d8a543c7fc911847b96f00' },
+  WBTC:  { symbol: 'WBTC',  decimals: 8,  id: '383bc735a4de6722af80546ec9eeb3cff508f2f68e97da19489ce69f3e703200' },
+  AYIN:  { symbol: 'AYIN',  decimals: 18, id: '1a281053ba8601a658368594da034c2e99a0fb951b86498d05e76aedfe666800' },
+  DAI:   { symbol: 'DAI',   decimals: 18, id: '3d0a1895108782acfa875c2829b0bf76cb586d95ffa4ea9855982667cc73b700' },
 };
 
+// Reverse lookup: hex id → symbol
+const ID_TO_SYMBOL = new Map(Object.values(TOKENS).map(t => [t.id, t.symbol]));
+
+// Accept both symbol and hex ID as input
+function resolveToken(input: string): TokenMeta | null {
+  // By symbol
+  if (TOKENS[input.toUpperCase()]) return TOKENS[input.toUpperCase()];
+  // By hex ID
+  const sym = ID_TO_SYMBOL.get(input);
+  if (sym) return TOKENS[sym];
+  // Legacy: 'native' = ALPH
+  if (input === 'native') return TOKENS.ALPH;
+  return null;
+}
+
+// ─── Ayin AMM Pool addresses (mainnet, from DefiLlama/ayin adapter) ─────
+interface Pool { address: string; token0: string; token1: string }
+const POOLS: Pool[] = [
+  { address: '2A5R8KZQ3rhKYrW7bAS4JTjY9FCFLJg6HjQpqSFZBqACX', token0: ALPH_ID, token1: TOKENS.USDT.id },
+  { address: '283R192Z8n6PhXSpSciyvCsLEiiEVFkSE6MbRBA4KSaAj', token0: ALPH_ID, token1: TOKENS.USDC.id },
+  { address: 'yXMFxdoKcE86W9NAyajc8Z3T3k2f5FGiHqHtuA69DYT1',  token0: ALPH_ID, token1: TOKENS.WETH.id },
+  { address: '28XY326TxvSekaAwiWDLFg2QBRfacSga8dyNJCYGUYNbq', token0: ALPH_ID, token1: TOKENS.WBTC.id },
+  { address: '25ywM8iGxKpZWuGA5z6DXKGcZCXtPBmnbQyJEsjvjjWTy', token0: ALPH_ID, token1: TOKENS.AYIN.id },
+  { address: '21NEBCk8nj5JBKpS7eN8kX6xGJoLHNqTS3WBFnZ7q8L9m', token0: TOKENS.AYIN.id, token1: TOKENS.USDT.id },
+  { address: '2961aauvprhETv6TXGQRc3zZY4FbLnqKon2a4wK6ABH9q', token0: TOKENS.AYIN.id, token1: TOKENS.USDC.id },
+  { address: '27C75V9K5o9CkkGTMDQZ3x2eP82xnacraEqTYXA35Xuw5', token0: TOKENS.USDT.id, token1: TOKENS.USDC.id },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────
 const SELL_AMOUNT_RE = /^[0-9]{1,78}$/;
 
-function jsonResponse(data: unknown, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-  });
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+function err(message: string, status = 400) { return json({ error: message }, status); }
+
+function applyFee(raw: bigint) {
+  const fee = (raw * BigInt(FEE_BPS)) / 10000n;
+  return { buyAmount: raw - fee, feeAmount: fee };
 }
 
-function errorResponse(message: string, status = 400) {
-  return jsonResponse({ error: message }, status);
+/** Uniswap V2 constant-product AMM: 0.3% LP fee */
+function amountOut(amIn: bigint, rIn: bigint, rOut: bigint): bigint {
+  if (amIn <= 0n || rIn <= 0n || rOut <= 0n) return 0n;
+  const num = 997n * amIn * rOut;
+  const den = 997n * amIn + 1000n * rIn;
+  return num / den;
 }
 
-/** Apply protocol fee: deduct FEE_BPS from output amount */
-function applyFee(buyAmountRaw: bigint): { buyAmount: bigint; feeAmount: bigint } {
-  const feeAmount = (buyAmountRaw * BigInt(FEE_BPS)) / BigInt(10000);
-  return {
-    buyAmount: buyAmountRaw - feeAmount,
-    feeAmount,
-  };
+/** Fetch all balances (ALPH + tokens) for an address */
+async function balances(addr: string): Promise<Map<string, bigint>> {
+  const r = await fetch(`${NODE_URL}/addresses/${addr}/balance`);
+  if (!r.ok) { await r.text(); return new Map(); }
+  const d = await r.json();
+  const m = new Map<string, bigint>();
+  m.set(ALPH_ID, BigInt(d.balance || '0'));
+  for (const tb of d.tokenBalances || []) m.set(tb.id, BigInt(tb.amount || '0'));
+  return m;
 }
 
-/** Fetch USD prices from CoinGecko for given coingecko IDs */
-async function fetchPricesUsd(ids: string[]): Promise<Record<string, number>> {
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`;
-  const resp = await fetch(url, {
-    headers: { Accept: 'application/json' },
-  });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`CoinGecko error ${resp.status}: ${text}`);
-  }
-  const data = await resp.json();
-  const result: Record<string, number> = {};
-  for (const id of ids) {
-    result[id] = data[id]?.usd ?? 0;
-  }
-  return result;
+/** Find a direct pool for two tokens */
+function findPool(a: string, b: string): Pool | undefined {
+  return POOLS.find(p =>
+    (p.token0 === a && p.token1 === b) || (p.token0 === b && p.token1 === a)
+  );
 }
 
+// ─── Handler ─────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  if (req.method !== 'POST') {
-    return errorResponse('Method not allowed', 405);
-  }
+  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  if (req.method !== 'POST') return err('Method not allowed', 405);
 
   try {
     let body: Record<string, unknown>;
-    try {
-      body = await req.json();
-    } catch {
-      return errorResponse('Invalid JSON body');
-    }
+    try { body = await req.json(); } catch { return err('Invalid JSON body'); }
 
     const { sellToken, buyToken, sellAmount, taker, mode } = body;
+    if (typeof sellToken !== 'string' || typeof buyToken !== 'string' || typeof sellAmount !== 'string')
+      return err('sellToken, buyToken (string) and sellAmount (string) are required');
+    if (!SELL_AMOUNT_RE.test(sellAmount) || sellAmount === '0')
+      return err('sellAmount must be a positive integer string');
 
-    // Validate required fields
-    if (typeof sellToken !== 'string' || typeof buyToken !== 'string' || typeof sellAmount !== 'string') {
-      return errorResponse('sellToken, buyToken (string) and sellAmount (string) are required');
-    }
-
-    if (!SELL_AMOUNT_RE.test(sellAmount) || sellAmount === '0') {
-      return errorResponse('sellAmount must be a positive integer string');
-    }
-
-    const sellInfo = KNOWN_TOKENS[sellToken];
-    const buyInfo = KNOWN_TOKENS[buyToken];
-    if (!sellInfo) return errorResponse(`Unknown sellToken: ${sellToken}`);
-    if (!buyInfo) return errorResponse(`Unknown buyToken: ${buyToken}`);
-    if (sellToken === buyToken) return errorResponse('sellToken and buyToken must be different');
+    const sell = resolveToken(sellToken);
+    const buy  = resolveToken(buyToken);
+    if (!sell) return err(`Unknown sellToken: ${sellToken}`);
+    if (!buy)  return err(`Unknown buyToken: ${buyToken}`);
+    if (sell.id === buy.id) return err('sellToken and buyToken must be different');
 
     const isQuote = mode === 'quote';
-    if (isQuote && (!taker || typeof taker !== 'string')) {
-      return errorResponse('A valid taker address is required for quotes');
-    }
+    if (isQuote && (!taker || typeof taker !== 'string'))
+      return err('A valid taker address is required for quotes');
 
-    // ─── Fetch prices from CoinGecko ────────────────────────────
+    const amIn = BigInt(sellAmount);
+
     try {
-      const idsToFetch = [sellInfo.coingeckoId, buyInfo.coingeckoId].filter(Boolean) as string[];
+      let rawOut = 0n;
+      let route: Record<string, unknown> = {};
 
-      if (idsToFetch.length < 2) {
-        return errorResponse('Price data unavailable for one or both tokens', 422);
+      // 1) Try direct pool
+      const direct = findPool(sell.id, buy.id);
+      if (direct) {
+        const bal = await balances(direct.address);
+        const rIn  = bal.get(sell.id) || 0n;
+        const rOut = bal.get(buy.id)  || 0n;
+        if (rIn > 0n && rOut > 0n) {
+          rawOut = amountOut(amIn, rIn, rOut);
+          route = { type: 'direct', pool: direct.address, reserveIn: rIn.toString(), reserveOut: rOut.toString() };
+        }
       }
 
-      const prices = await fetchPricesUsd(idsToFetch);
-      const sellPriceUsd = prices[sellInfo.coingeckoId!];
-      const buyPriceUsd = prices[buyInfo.coingeckoId!];
-
-      if (!sellPriceUsd || !buyPriceUsd) {
-        return errorResponse('Could not fetch price for one or both tokens', 422);
+      // 2) Multi-hop through ALPH (if no direct pool or no liquidity)
+      if (rawOut <= 0n && sell.id !== ALPH_ID && buy.id !== ALPH_ID) {
+        const pool1 = findPool(sell.id, ALPH_ID);
+        const pool2 = findPool(ALPH_ID, buy.id);
+        if (pool1 && pool2) {
+          const [b1, b2] = await Promise.all([balances(pool1.address), balances(pool2.address)]);
+          const r1In  = b1.get(sell.id) || 0n;
+          const r1Out = b1.get(ALPH_ID) || 0n;
+          const mid = amountOut(amIn, r1In, r1Out);
+          if (mid > 0n) {
+            const r2In  = b2.get(ALPH_ID) || 0n;
+            const r2Out = b2.get(buy.id)  || 0n;
+            rawOut = amountOut(mid, r2In, r2Out);
+            route = { type: 'multi-hop', path: `${sell.symbol} → ALPH → ${buy.symbol}`, intermediateAmount: mid.toString() };
+          }
+        }
       }
 
-      // Calculate: buyAmount = sellAmount * (sellPrice / buyPrice) adjusted for decimals
-      // Using integer math to avoid floating point issues
-      const sellAmountBig = BigInt(sellAmount);
-      
-      // Convert prices to integer representation (multiply by 1e12 for precision)
-      const PRECISION = 1_000_000_000_000n;
-      const sellPriceInt = BigInt(Math.round(sellPriceUsd * 1e12));
-      const buyPriceInt = BigInt(Math.round(buyPriceUsd * 1e12));
+      if (rawOut <= 0n) return err('No liquidity available for this pair on Ayin DEX', 422);
 
-      // rawBuyAmount = sellAmount * sellPrice / buyPrice * (10^buyDecimals / 10^sellDecimals)
-      const decimalDiff = buyInfo.decimals - sellInfo.decimals;
-      let rawBuyAmount: bigint;
+      const { buyAmount, feeAmount } = applyFee(rawOut);
+      const minBuy = (buyAmount * 97n) / 100n;
 
-      if (decimalDiff >= 0) {
-        rawBuyAmount = (sellAmountBig * sellPriceInt * (10n ** BigInt(decimalDiff))) / buyPriceInt;
-      } else {
-        rawBuyAmount = (sellAmountBig * sellPriceInt) / (buyPriceInt * (10n ** BigInt(-decimalDiff)));
-      }
-
-      if (rawBuyAmount <= 0n) {
-        return errorResponse('No liquidity available for this pair', 422);
-      }
-
-      const { buyAmount, feeAmount } = applyFee(rawBuyAmount);
-
-      const response: Record<string, unknown> = {
+      const resp: Record<string, unknown> = {
         buyAmount: buyAmount.toString(),
-        sellAmount,
-        sellToken,
-        buyToken,
-        fees: {
-          protocolFee: {
-            amount: feeAmount.toString(),
-            bps: FEE_BPS,
-            recipient: FEE_RECIPIENT,
-          },
-        },
-        minBuyAmount: ((buyAmount * 97n) / 100n).toString(), // 3% default slippage
-        source: 'alephium-coingecko-oracle',
-        prices: {
-          [sellInfo.symbol]: sellPriceUsd,
-          [buyInfo.symbol]: buyPriceUsd,
-        },
+        sellAmount, sellToken: sell.symbol, buyToken: buy.symbol,
+        fees: { protocolFee: { amount: feeAmount.toString(), bps: FEE_BPS, recipient: FEE_RECIPIENT }, lpFee: { bps: 30, desc: '0.3% AMM LP fee (included)' } },
+        minBuyAmount: minBuy.toString(),
+        route,
+        source: 'ayin-dex-onchain',
       };
 
-      // For quotes, include swap metadata (actual tx building requires on-chain contract calls)
       if (isQuote && taker) {
-        response.quoteData = {
-          taker,
-          sellToken,
-          buyToken,
-          sellAmount,
-          buyAmount: buyAmount.toString(),
-          minBuyAmount: ((buyAmount * 97n) / 100n).toString(),
-          note: 'Sign and submit via Alephium wallet — on-chain DEX contract interaction required',
+        resp.quoteData = {
+          taker, sellTokenId: sell.id, buyTokenId: buy.id,
+          sellAmount, buyAmount: buyAmount.toString(), minBuyAmount: minBuy.toString(),
+          deadline: (Date.now() + 20 * 60 * 1000).toString(), route,
         };
       }
 
-      return jsonResponse(response);
-    } catch (fetchErr) {
-      console.error('Price fetch error:', fetchErr);
-      return errorResponse('Failed to fetch pricing data', 502);
+      return json(resp);
+    } catch (e) {
+      console.error('Reserve fetch error:', e);
+      return err('Failed to query on-chain pool reserves', 502);
     }
-  } catch (err) {
-    console.error('Internal error:', err);
-    return errorResponse('Internal server error', 500);
+  } catch (e) {
+    console.error('Internal error:', e);
+    return err('Internal server error', 500);
   }
 });
