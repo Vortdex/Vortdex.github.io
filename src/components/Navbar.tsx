@@ -1,4 +1,5 @@
-import { ArrowUpRight, Layers, Zap } from "lucide-react";
+import { Layers } from "lucide-react";
+import WalletButton from "@/components/WalletButton";
 
 const Navbar = () => {
   return (
@@ -16,11 +17,7 @@ const Navbar = () => {
           <a href="#protocols" className="text-muted-foreground hover:text-primary transition-colors">Protokolle</a>
           <a href="#liquidity" className="text-muted-foreground hover:text-primary transition-colors">Liquidität</a>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-mono text-sm hover:bg-primary/20 transition-all glow-primary">
-          <Zap className="w-4 h-4" />
-          Wallet verbinden
-          <ArrowUpRight className="w-3 h-3" />
-        </button>
+        <WalletButton />
       </div>
     </nav>
   );
