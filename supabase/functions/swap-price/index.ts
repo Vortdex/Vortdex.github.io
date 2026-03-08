@@ -6,7 +6,7 @@ const corsHeaders = {
 const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
 const FEE_BPS = '10'; // 0.1% = 10 basis points
 
-const VALID_CHAIN_IDS = [1, 42161, 137, 10, 8453];
+const VALID_CHAIN_IDS = [1, 42161, 137, 10, 8453, 480];
 const ETH_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const NATIVE_ETH = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
 const SELL_AMOUNT_RE = /^[0-9]{1,78}$/; // uint256 max is 78 digits

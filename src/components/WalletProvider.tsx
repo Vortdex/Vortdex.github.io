@@ -15,7 +15,7 @@ const metadata = {
 
 createAppKit({
   adapters: [wagmiAdapter],
-  networks: [mainnet, arbitrum, polygon, optimism, base],
+  networks: [mainnet, arbitrum, polygon, optimism, base, worldchain],
   projectId,
   metadata,
   themeMode: 'dark' as const,
