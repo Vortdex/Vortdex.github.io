@@ -77,10 +77,14 @@ const LimitOrderPanel = () => {
           </div>
 
           {/* Total */}
-          <div className="p-3 rounded-lg bg-muted/30 border border-border mb-4">
+          <div className="p-3 rounded-lg bg-muted/30 border border-border mb-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Total</span>
               <span className="font-mono font-bold text-foreground">{parseFloat(total).toLocaleString()} USDC</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">VortexDEX Fee (0.1%)</span>
+              <span className="font-mono text-xs text-foreground">{(parseFloat(total) * 0.001).toFixed(2)} USDC</span>
             </div>
           </div>
 

@@ -534,6 +534,18 @@ const SwapWidget = () => {
                 <span className="font-mono text-foreground">1 {fromToken.symbol} = {rate} {toToken.symbol}</span>
               </div>
             )}
+            <div className="flex items-center justify-between text-sm mt-2">
+              <span className="text-muted-foreground">VortexDEX Fee</span>
+              <span className="font-mono text-foreground text-xs">0.1%</span>
+            </div>
+            {quoteData?.fees?.integratorFee?.amount && (
+              <div className="flex items-center justify-between text-sm mt-1">
+                <span className="text-muted-foreground text-xs">Fee Betrag</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {(Number(quoteData.fees.integratorFee.amount) / 10 ** toToken.decimals).toLocaleString("en-US", { maximumFractionDigits: 6 })} {toToken.symbol}
+                </span>
+              </div>
+            )}
             {requiresApproval && (
               <div className="flex items-center gap-2 text-sm mt-2 text-accent">
                 <AlertCircle className="w-3 h-3" />
