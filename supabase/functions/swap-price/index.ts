@@ -44,14 +44,29 @@ Deno.serve(async (req) => {
       ...(taker && { taker }),
     });
 
-    const response = await fetch(`https://${baseUrl}/swap/permit2/price?${params}`, {
+    const url = `https://${baseUrl}/swap/permit2/price?${params}`;
+    console.log('Fetching 0x price:', url);
+
+    const response = await fetch(url, {
       headers: {
         '0x-api-key': apiKey,
         '0x-version': '2',
       },
     });
 
-    const data = await response.json();
+    const text = await response.text();
+    console.log('0x API response status:', response.status, 'body:', text.substring(0, 500));
+
+    // Try to parse as JSON, return raw text error if not
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: `0x API error: ${text.substring(0, 200)}` }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(JSON.stringify(data), {
       status: response.status,
