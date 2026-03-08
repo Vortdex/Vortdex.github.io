@@ -737,15 +737,6 @@ const SwapWidget = () => {
                   )}
                 </span>
               )}
-                {fromBalance && parseFloat(fromBalance) > 0 && (
-                  <button
-                    onClick={() => setFromAmount(fromBalance)}
-                    className="text-primary hover:underline text-xs"
-                  >
-                    MAX
-                  </button>
-                )}
-              </span>
             </div>
             <div className="flex items-center gap-3">
               <input
