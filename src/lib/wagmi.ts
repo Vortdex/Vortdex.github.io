@@ -1,7 +1,7 @@
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
 import { mainnet, arbitrum, polygon, optimism, base } from '@reown/appkit/networks';
 
-export const projectId = 'demo-project-id'; // Replace with your Reown Project ID
+export const projectId = import.meta.env.VITE_REOWN_PROJECT_ID || '';
 
 export const wagmiAdapter = new WagmiAdapter({
   projectId,
