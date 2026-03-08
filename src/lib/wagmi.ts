@@ -1,12 +1,14 @@
-import { getDefaultConfig } from '@rainbow-me/rainbowkit';
-import { mainnet, arbitrum, polygon, optimism, base } from 'wagmi/chains';
+import { WagmiAdapter } from '@reown/appkit-adapter-wagmi';
+import { mainnet, arbitrum, polygon, optimism, base } from '@reown/appkit/networks';
 
-export const config = getDefaultConfig({
-  appName: 'VortexDEX',
-  projectId: 'demo-project-id', // WalletConnect Cloud Project ID - replace for production
-  chains: [mainnet, arbitrum, polygon, optimism, base],
-  ssr: false,
+export const projectId = 'demo-project-id'; // Replace with your Reown Project ID
+
+export const wagmiAdapter = new WagmiAdapter({
+  projectId,
+  networks: [mainnet, arbitrum, polygon, optimism, base],
 });
+
+export const config = wagmiAdapter.wagmiConfig;
 
 export const supportedChains = [
   { id: mainnet.id, name: 'Ethereum', symbol: 'ETH', color: 'hsl(220, 60%, 55%)' },
