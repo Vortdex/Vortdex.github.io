@@ -94,6 +94,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'ARB', name: 'Arbitrum', address: '0x912CE59144191C1204E64559FE8253a0e49E6548', decimals: 18, color: 'hsl(210, 80%, 55%)' },
     { symbol: 'WBTC', name: 'Wrapped Bitcoin', address: '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f', decimals: 8, color: 'hsl(30, 90%, 55%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', decimals: 18, color: 'hsl(220, 60%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0xB0fFa8000886e57F86dd5264b987B9a11441FBf1', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   137: [
     { symbol: 'MATIC', name: 'Polygon', address: NATIVE_ETH, decimals: 18, color: 'hsl(265, 80%, 55%)' },
