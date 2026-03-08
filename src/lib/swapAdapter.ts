@@ -116,6 +116,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'USDC', name: 'USD Coin', address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6, color: 'hsl(210, 80%, 55%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x4200000000000000000000000000000000000006', decimals: 18, color: 'hsl(220, 60%, 55%)' },
     { symbol: 'cbBTC', name: 'Coinbase BTC', address: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', decimals: 8, color: 'hsl(30, 90%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   480: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(160, 70%, 50%)' },
