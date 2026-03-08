@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.swap-price]
 verify_jwt = false
+
+[functions.swap-alephium]
+verify_jwt = false
