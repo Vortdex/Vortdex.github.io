@@ -13,6 +13,7 @@ const Navbar = () => {
         </div>
         <div className="hidden md:flex items-center gap-8 font-mono text-sm">
           <a href="#swap" className="text-muted-foreground hover:text-primary transition-colors">Swap</a>
+          <a href="#bridge" className="text-muted-foreground hover:text-primary transition-colors">Bridge</a>
           <a href="#limit" className="text-muted-foreground hover:text-primary transition-colors">Limit Orders</a>
           <a href="#protocols" className="text-muted-foreground hover:text-primary transition-colors">Protokolle</a>
           <a href="#liquidity" className="text-muted-foreground hover:text-primary transition-colors">Liquidität</a>

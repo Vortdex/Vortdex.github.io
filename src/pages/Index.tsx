@@ -1,6 +1,7 @@
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
 import SwapWidget from "@/components/SwapWidget";
+import BridgeSection from "@/components/BridgeSection";
 import LimitOrderPanel from "@/components/LimitOrderPanel";
 import ProtocolCards from "@/components/ProtocolCards";
 import LiquiditySection from "@/components/LiquiditySection";
@@ -12,6 +13,7 @@ const Index = () => {
       <Navbar />
       <HeroSection />
       <SwapWidget />
+      <BridgeSection />
       <LimitOrderPanel />
       <ProtocolCards />
       <LiquiditySection />
