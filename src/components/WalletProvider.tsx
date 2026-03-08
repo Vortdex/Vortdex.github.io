@@ -3,6 +3,7 @@ import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { mainnet, arbitrum, polygon, optimism, base } from '@reown/appkit/networks';
 import { wagmiAdapter, projectId, worldchain } from '@/lib/wagmi';
+import AlephiumWalletProvider from '@/components/AlephiumWalletProvider';
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,9 @@ const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <WagmiProvider config={wagmiAdapter.wagmiConfig}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <AlephiumWalletProvider>
+          {children}
+        </AlephiumWalletProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
