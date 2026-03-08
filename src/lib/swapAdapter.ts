@@ -357,6 +357,6 @@ export function getAllChains(): { id: number | string; name: string; adapter: st
     { id: 10, name: 'Optimism', adapter: '0x', isEvm: true },
     { id: 8453, name: 'Base', adapter: '0x', isEvm: true },
     { id: 480, name: 'World Chain', adapter: '0x', isEvm: true },
-    { id: 'alephium', name: 'Alephium', adapter: 'ayin', isEvm: false },
+    { id: 'alephium', name: 'Alephium', adapter: 'alph-sdk', isEvm: false },
   ];
 }
