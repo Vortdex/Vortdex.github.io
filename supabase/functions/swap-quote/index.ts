@@ -3,7 +3,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-const FEE_RECIPIENT = '0x401e2584ed1f4b0cc5d265fbbe0c917631dc2b2c';
+const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
 const FEE_BPS = '10'; // 0.1% = 10 basis points
 
 const VALID_CHAIN_IDS = [1, 42161, 137, 10, 8453];
