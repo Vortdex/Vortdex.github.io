@@ -110,13 +110,13 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
 
   if (!chartData || !stats) return null;
 
-  return (
-    <div className={`rounded-xl border border-border bg-card/50 p-4 ${className}`}>
+    return (
+    <div className={`rounded-lg border border-border bg-card/50 p-3 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-sm text-foreground">{symbol}/USD</span>
-          <span className="text-xs text-muted-foreground font-mono">24h</span>
+          <span className="font-mono font-bold text-xs text-foreground">{symbol}/USD</span>
+          <span className="text-[10px] text-muted-foreground font-mono">24h</span>
           {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
         </div>
         <div className="flex items-center gap-2">
