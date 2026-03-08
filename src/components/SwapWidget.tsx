@@ -15,6 +15,18 @@ const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 const AMOUNT_RE = /^\d*\.?\d*$/;
 const SLIPPAGE_PRESETS = [0.5, 1, 3] as const;
 const SLIPPAGE_RE = /^\d*\.?\d{0,2}$/;
+const ALPH_NODE_URL = "https://node.mainnet.alephium.org";
+
+// Alephium on-chain hex token IDs (from official token-list)
+const ALPH_TOKEN_IDS: Record<string, string> = {
+  ALPH: "0000000000000000000000000000000000000000000000000000000000000000",
+  USDT: "556d9582463fe44fbd108aedc9f409f69086dc78d994b88ea6c9e65f8bf98e00",
+  USDC: "722954d9067c5a5ad532746a024f2a9d7a18ed9b90e27d0a3a504962160b5600",
+  WETH: "19246e8c2899bc258a1156e08466e3cdd3323da756d8a543c7fc911847b96f00",
+  WBTC: "383bc735a4de6722af80546ec9eeb3cff508f2f68e97da19489ce69f3e703200",
+  AYIN: "1a281053ba8601a658368594da034c2e99a0fb951b86498d05e76aedfe666800",
+  DAI:  "3d0a1895108782acfa875c2829b0bf76cb586d95ffa4ea9855982667cc73b700",
+};
 
 interface Token {
   symbol: string;
