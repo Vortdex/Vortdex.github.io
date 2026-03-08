@@ -232,31 +232,73 @@ export class ElexiumDexBackend implements AlephiumDexBackend {
   }
 }
 
-// ─── Official Alephium DEX SDK Backend (Stub) ────────────────
+// ─── Official Alephium DEX Backend (Primary) ─────────────────
+
+const ALPH_DEX_TOKENS: SwapToken[] = [
+  { symbol: 'ALPH', name: 'Alephium', address: 'native', decimals: 18, color: 'hsl(165, 70%, 45%)' },
+  { symbol: 'USDT', name: 'Tether (Alephium)', address: 'zSRgc7goAYUgYsEBYDjp4EMRHieZ5wXBnpfubFpEhDFo', decimals: 6, color: 'hsl(160, 80%, 45%)' },
+  { symbol: 'WETH', name: 'Wrapped ETH (Alephium)', address: 'vT49PY8ksoUL6NcXiZ1t2wAmC7tTPRfFfER8n3UCLvXy', decimals: 18, color: 'hsl(220, 60%, 55%)' },
+  { symbol: 'AYIN', name: 'Ayin', address: 'vP6XSUyjmgWCB2B9tD5Rqun56WJqDdExWnfwZVEqzhQb', decimals: 18, color: 'hsl(30, 80%, 55%)' },
+  { symbol: 'WBTC', name: 'Wrapped BTC (Alephium)', address: '27Ub32AhfC7A2oDeBP5Jb14A1MCAJEMfGndoPTAP7goqr', decimals: 8, color: 'hsl(30, 90%, 55%)' },
+  { symbol: 'DAI', name: 'Dai (Alephium)', address: 'xUTp3RXGJ1fJpCGqsAY6GgyfRQ3WQ1MdcYR1SiwndAbR', decimals: 18, color: 'hsl(40, 90%, 55%)' },
+];
 
 export class AlephiumOfficialDexBackend implements AlephiumDexBackend {
   readonly id = 'alph-sdk';
   readonly name = 'Alephium DEX (Official)';
 
   getTokens(): SwapToken[] {
-    return AYIN_TOKENS;
+    return ALPH_DEX_TOKENS;
   }
 
-  async getPrice(_req: SwapPriceRequest): Promise<SwapPriceResponse> {
-    throw new Error('Official Alephium DEX SDK integration coming soon');
+  async getPrice(req: SwapPriceRequest): Promise<SwapPriceResponse> {
+    const { data, error } = await supabase.functions.invoke('swap-alephium', {
+      body: {
+        sellToken: req.sellToken,
+        buyToken: req.buyToken,
+        sellAmount: req.sellAmount,
+        mode: 'price',
+        ...(req.taker && { taker: req.taker }),
+      },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    return {
+      buyAmount: data.buyAmount,
+      fees: data.fees,
+      minBuyAmount: data.minBuyAmount,
+      raw: data,
+    };
   }
 
-  async getQuote(_req: SwapQuoteRequest): Promise<SwapQuoteResponse> {
-    throw new Error('Official Alephium DEX SDK integration coming soon');
+  async getQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse> {
+    const { data, error } = await supabase.functions.invoke('swap-alephium', {
+      body: {
+        sellToken: req.sellToken,
+        buyToken: req.buyToken,
+        sellAmount: req.sellAmount,
+        taker: req.taker,
+        mode: 'quote',
+      },
+    });
+    if (error) throw new Error(error.message);
+    if (data?.error) throw new Error(data.error);
+    return {
+      buyAmount: data.buyAmount,
+      fees: data.fees,
+      minBuyAmount: data.minBuyAmount,
+      unsignedTx: data.unsignedTx,
+      raw: data,
+    };
   }
 }
 
 // ─── Alephium Adapter (routes to pluggable backend) ──────────
 
 const AVAILABLE_BACKENDS: AlephiumDexBackend[] = [
+  new AlephiumOfficialDexBackend(), // Official SDK = default (primary)
   new AyinDexBackend(),
   new ElexiumDexBackend(),
-  new AlephiumOfficialDexBackend(),
 ];
 
 export class AlephiumAdapter implements SwapAdapter {
