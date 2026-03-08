@@ -286,7 +286,13 @@ const TokenRow = ({ token, isSelected, walletAddress, onClick }: {
 };
 
 const SwapWidget = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
+  const { switchChain } = useSwitchChain();
+  const [selectedChainId, setSelectedChainId] = useState(1);
+  const [chainSelectorOpen, setChainSelectorOpen] = useState(false);
+  const chainSelectorRef = useRef<HTMLDivElement>(null);
+
+  const tokens = useMemo(() => getTokensForChain(selectedChainId), [selectedChainId]);
   const [fromToken, setFromToken] = useState(tokens[0]);
   const [toToken, setToToken] = useState(tokens[1]);
   const [fromAmount, setFromAmount] = useState("1.0");
