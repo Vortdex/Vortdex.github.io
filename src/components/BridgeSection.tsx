@@ -331,9 +331,9 @@ const BridgeSection = () => {
               </span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Bridge Fee</span>
+              <span className="text-muted-foreground">VortexDEX Fee</span>
               <span className="font-mono text-foreground text-xs">
-                {fee} {selectedToken.symbol} (0.2%)
+                {fee} {selectedToken.symbol} (0.1%)
               </span>
             </div>
           </div>
