@@ -1,16 +1,159 @@
-import { useState, useEffect, useCallback } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 
-const tokens = [
-  { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18 },
-  { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6 },
-  { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8 },
-  { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18 },
-  { symbol: "WETH", name: "Wrapped Ether", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18 },
+interface Token {
+  symbol: string;
+  name: string;
+  address: string;
+  decimals: number;
+  color: string;
+}
+
+const tokens: Token[] = [
+  { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 60%, 55%)" },
+  { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, color: "hsl(210, 80%, 55%)" },
+  { symbol: "USDT", name: "Tether", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, color: "hsl(160, 80%, 45%)" },
+  { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8, color: "hsl(30, 90%, 55%)" },
+  { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, color: "hsl(40, 90%, 55%)" },
+  { symbol: "WETH", name: "Wrapped Ether", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18, color: "hsl(220, 60%, 55%)" },
+  { symbol: "LINK", name: "Chainlink", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18, color: "hsl(220, 80%, 60%)" },
+  { symbol: "UNI", name: "Uniswap", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18, color: "hsl(330, 80%, 60%)" },
+  { symbol: "AAVE", name: "Aave", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, color: "hsl(270, 60%, 55%)" },
+  { symbol: "LDO", name: "Lido DAO", address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", decimals: 18, color: "hsl(195, 80%, 55%)" },
 ];
+
+interface TokenSelectorProps {
+  selectedToken: Token;
+  otherToken: Token;
+  onSelect: (token: Token) => void;
+  side: "from" | "to";
+}
+
+const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelectorProps) => {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const filtered = tokens.filter(
+    (t) =>
+      t.address !== otherToken.address &&
+      (t.symbol.toLowerCase().includes(search.toLowerCase()) ||
+        t.name.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  useEffect(() => {
+    if (open && inputRef.current) inputRef.current.focus();
+  }, [open]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border hover:border-primary/30 transition-all shrink-0"
+      >
+        <div
+          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-mono font-bold"
+          style={{ backgroundColor: `${selectedToken.color}22`, color: selectedToken.color }}
+        >
+          {selectedToken.symbol[0]}
+        </div>
+        <span className="font-mono font-semibold text-foreground">{selectedToken.symbol}</span>
+        <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          {/* Search */}
+          <div className="p-3 border-b border-border">
+            <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+              <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input
+                ref={inputRef}
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Token suchen..."
+                className="bg-transparent text-sm font-mono text-foreground outline-none w-full placeholder:text-muted-foreground"
+              />
+              {search && (
+                <button onClick={() => setSearch("")}>
+                  <X className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Popular quick-picks */}
+          <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1.5">
+            {tokens.slice(0, 4).filter((t) => t.address !== otherToken.address).map((t) => (
+              <button
+                key={t.symbol}
+                onClick={() => { onSelect(t); setOpen(false); setSearch(""); }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium border transition-all ${
+                  t.address === selectedToken.address
+                    ? "bg-primary/15 border-primary/30 text-primary"
+                    : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.symbol}
+              </button>
+            ))}
+          </div>
+
+          {/* Token list */}
+          <div className="max-h-52 overflow-y-auto p-1.5">
+            {filtered.length === 0 ? (
+              <div className="px-3 py-4 text-center text-sm text-muted-foreground font-mono">
+                Kein Token gefunden
+              </div>
+            ) : (
+              filtered.map((token) => (
+                <button
+                  key={token.address}
+                  onClick={() => { onSelect(token); setOpen(false); setSearch(""); }}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                    token.address === selectedToken.address
+                      ? "bg-primary/10 border border-primary/20"
+                      : "hover:bg-muted/50 border border-transparent"
+                  }`}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-mono font-bold shrink-0"
+                    style={{ backgroundColor: `${token.color}22`, color: token.color }}
+                  >
+                    {token.symbol[0]}
+                  </div>
+                  <div className="text-left min-w-0">
+                    <div className="font-mono font-semibold text-sm text-foreground">{token.symbol}</div>
+                    <div className="text-xs text-muted-foreground truncate">{token.name}</div>
+                  </div>
+                  {token.address === selectedToken.address && (
+                    <div className="ml-auto w-2 h-2 rounded-full bg-primary shrink-0" />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SwapWidget = () => {
   const [fromToken, setFromToken] = useState(tokens[0]);
@@ -96,13 +239,12 @@ const SwapWidget = () => {
                 className="bg-transparent text-3xl font-mono font-bold text-foreground outline-none w-full"
                 placeholder="0.0"
               />
-              <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border hover:border-primary/30 transition-all shrink-0">
-                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center text-xs font-mono font-bold text-primary">
-                  {fromToken.symbol[0]}
-                </div>
-                <span className="font-mono font-semibold text-foreground">{fromToken.symbol}</span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </button>
+              <TokenSelector
+                selectedToken={fromToken}
+                otherToken={toToken}
+                onSelect={setFromToken}
+                side="from"
+              />
             </div>
           </div>
 
@@ -136,13 +278,12 @@ const SwapWidget = () => {
                   />
                 )}
               </div>
-              <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border hover:border-primary/30 transition-all shrink-0">
-                <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center text-xs font-mono font-bold text-secondary">
-                  {toToken.symbol[0]}
-                </div>
-                <span className="font-mono font-semibold text-foreground">{toToken.symbol}</span>
-                <ChevronDown className="w-4 h-4 text-muted-foreground" />
-              </button>
+              <TokenSelector
+                selectedToken={toToken}
+                otherToken={fromToken}
+                onSelect={setToToken}
+                side="to"
+              />
             </div>
           </div>
 
