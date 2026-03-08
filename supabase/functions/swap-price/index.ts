@@ -3,6 +3,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+const FEE_RECIPIENT = '0x401e2584ed1f4b0cc5d265fbbe0c917631dc2b2c';
+const FEE_BPS = '10'; // 0.1% = 10 basis points
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,11 +36,13 @@ Deno.serve(async (req) => {
       sellToken,
       buyToken,
       sellAmount,
+      swapFeeRecipient: FEE_RECIPIENT,
+      swapFeeBps: FEE_BPS,
+      swapFeeToken: buyToken,
       ...(taker && { taker }),
     });
 
     const url = `https://api.0x.org/swap/permit2/price?${params}`;
-    console.log('Fetching 0x price:', url);
 
     const response = await fetch(url, {
       headers: {
@@ -47,7 +52,6 @@ Deno.serve(async (req) => {
     });
 
     const text = await response.text();
-    console.log('0x response:', response.status, text.substring(0, 500));
 
     let data;
     try {
