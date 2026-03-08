@@ -960,6 +960,9 @@ const SwapWidget = () => {
           </button>
 
           <SwapHistory />
+
+          {/* Price Chart */}
+          <PriceChart symbol={fromToken.symbol} className="mt-4" />
         </div>
       </div>
     </section>
