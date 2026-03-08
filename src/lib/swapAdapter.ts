@@ -102,6 +102,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'USDT', name: 'Tether', address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F', decimals: 6, color: 'hsl(160, 80%, 45%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619', decimals: 18, color: 'hsl(220, 60%, 55%)' },
     { symbol: 'WBTC', name: 'Wrapped Bitcoin', address: '0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6', decimals: 8, color: 'hsl(30, 90%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0x1e0049783f008A0085193E00003D00cd54003c71', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   10: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(0, 80%, 55%)' },

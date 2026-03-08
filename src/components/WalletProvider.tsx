@@ -20,6 +20,9 @@ createAppKit({
   projectId,
   metadata,
   themeMode: 'dark' as const,
+  featuredWalletIds: [
+    '1ae92b26df02f0abca6304df07debccd18262fdf5fe82daa81593582dac9a369', // World App
+  ],
   themeVariables: {
     '--w3m-accent': 'hsl(160, 100%, 50%)',
     '--w3m-border-radius-master': '2px',
