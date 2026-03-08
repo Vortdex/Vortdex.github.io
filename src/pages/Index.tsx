@@ -9,15 +9,19 @@ import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <HeroSection />
-      <SwapWidget />
-      <BridgeSection />
-      <LimitOrderPanel />
-      <ProtocolCards />
-      <LiquiditySection />
-      <Footer />
+    <div className="min-h-screen bg-background relative">
+      {/* Global cyber grid underlay */}
+      <div className="fixed inset-0 cyber-grid pointer-events-none z-0" />
+      <div className="relative z-10">
+        <Navbar />
+        <HeroSection />
+        <SwapWidget />
+        <BridgeSection />
+        <LimitOrderPanel />
+        <ProtocolCards />
+        <LiquiditySection />
+        <Footer />
+      </div>
     </div>
   );
 };

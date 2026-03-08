@@ -1,10 +1,10 @@
 import { BarChart3, TrendingUp, Users, DollarSign } from "lucide-react";
 
 const stats = [
-  { label: "Total Value Locked", value: "$847.2M", icon: DollarSign, change: "+12.4%" },
-  { label: "24h Volumen", value: "$124.5M", icon: BarChart3, change: "+8.7%" },
-  { label: "Aktive Nutzer", value: "42,891", icon: Users, change: "+5.2%" },
-  { label: "Avg. Spread", value: "0.04%", icon: TrendingUp, change: "-2.1%" },
+  { label: "TVL", value: "$847.2M", icon: DollarSign, change: "+12.4%" },
+  { label: "24h Vol", value: "$124.5M", icon: BarChart3, change: "+8.7%" },
+  { label: "Nutzer", value: "42,891", icon: Users, change: "+5.2%" },
+  { label: "Spread", value: "0.04%", icon: TrendingUp, change: "-2.1%" },
 ];
 
 const pools = [
@@ -15,72 +15,71 @@ const pools = [
   { pair: "DAI/USDC", tvl: "$98.4M", apy: "1.4%", source: "OpenDEX", volume: "$22.3M" },
 ];
 
-const LiquiditySection = () => {
-  return (
-    <section id="liquidity" className="py-20">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-3">Aggregierte Liquidität</h2>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Kombinierte Tiefe aus Loopring Orderbooks und OpenDEX AMM-Pools.
-          </p>
-        </div>
+const LiquiditySection = () => (
+  <section id="liquidity" className="py-16">
+    <div className="container mx-auto px-4">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl md:text-3xl font-display font-bold mb-2">Aggregierte <span className="gradient-text">Liquidität</span></h2>
+        <p className="text-muted-foreground text-sm max-w-md mx-auto">
+          Kombinierte Tiefe aus Loopring Orderbooks und OpenDEX AMM-Pools.
+        </p>
+      </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 max-w-4xl mx-auto">
-          {stats.map((s) => (
-            <div key={s.label} className="glass-card rounded-xl p-5 text-center">
-              <s.icon className="w-5 h-5 text-primary mx-auto mb-2" />
-              <div className="font-mono font-bold text-2xl text-foreground mb-1">{s.value}</div>
-              <div className="text-xs text-muted-foreground mb-1">{s.label}</div>
-              <span className={`text-xs font-mono ${s.change.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
-                {s.change}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Pools table */}
-        <div className="glass-card rounded-2xl overflow-hidden max-w-4xl mx-auto">
-          <div className="p-4 border-b border-border">
-            <h3 className="font-mono font-semibold text-foreground">Top Liquidity Pools</h3>
+      {/* Stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8 max-w-3xl mx-auto">
+        {stats.map((s) => (
+          <div key={s.label} className="glass-card rounded-lg p-4 text-center">
+            <s.icon className="w-4 h-4 text-secondary mx-auto mb-1.5 opacity-70" />
+            <div className="font-mono font-bold text-lg text-foreground">{s.value}</div>
+            <div className="text-[10px] text-muted-foreground mb-0.5">{s.label}</div>
+            <span className={`text-[10px] font-mono ${s.change.startsWith('+') ? 'text-primary' : 'text-destructive'}`}>
+              {s.change}
+            </span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="text-xs font-mono text-muted-foreground border-b border-border">
-                  <th className="text-left p-4">Paar</th>
-                  <th className="text-right p-4">TVL</th>
-                  <th className="text-right p-4">APY</th>
-                  <th className="text-right p-4">24h Vol</th>
-                  <th className="text-right p-4">Quelle</th>
+        ))}
+      </div>
+
+      {/* Pools table */}
+      <div className="glass-card rounded-xl overflow-hidden max-w-3xl mx-auto">
+        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+          <h3 className="font-mono font-semibold text-sm text-foreground">Top Pools</h3>
+          <span className="text-[10px] text-muted-foreground font-mono">Live</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-[10px] font-mono text-muted-foreground border-b border-border/50 uppercase tracking-wider">
+                <th className="text-left px-4 py-2.5">Paar</th>
+                <th className="text-right px-4 py-2.5">TVL</th>
+                <th className="text-right px-4 py-2.5">APY</th>
+                <th className="text-right px-4 py-2.5 hidden sm:table-cell">24h Vol</th>
+                <th className="text-right px-4 py-2.5">Quelle</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pools.map((pool) => (
+                <tr key={pool.pair} className="border-b border-border/30 hover:bg-primary/3 transition-colors">
+                  <td className="px-4 py-3 font-mono font-semibold text-sm text-foreground">{pool.pair}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-foreground">{pool.tvl}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-secondary">{pool.apy}</td>
+                  <td className="px-4 py-3 text-right font-mono text-xs text-muted-foreground hidden sm:table-cell">{pool.volume}</td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                      pool.source === "Loopring"
+                        ? "text-primary bg-primary/8 border-primary/15"
+                        : "text-secondary bg-secondary/8 border-secondary/15"
+                    }`}>
+                      {pool.source}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {pools.map((pool) => (
-                  <tr key={pool.pair} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
-                    <td className="p-4 font-mono font-semibold text-foreground">{pool.pair}</td>
-                    <td className="p-4 text-right font-mono text-foreground">{pool.tvl}</td>
-                    <td className="p-4 text-right font-mono text-primary">{pool.apy}</td>
-                    <td className="p-4 text-right font-mono text-muted-foreground">{pool.volume}</td>
-                    <td className="p-4 text-right">
-                      <span className={`text-xs font-mono px-2 py-1 rounded border ${
-                        pool.source === "Loopring" 
-                          ? "text-primary bg-primary/10 border-primary/20"
-                          : "text-secondary bg-secondary/10 border-secondary/20"
-                      }`}>
-                        {pool.source}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
-    </section>
-  );
-};
+    </div>
+  </section>
+);
 
 export default LiquiditySection;
