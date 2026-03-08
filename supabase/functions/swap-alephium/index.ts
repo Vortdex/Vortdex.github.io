@@ -1,10 +1,7 @@
 /**
  * swap-alephium — Edge function for Alephium DEX swaps using on-chain AMM pool reserves.
- *
- * Queries Ayin DEX AMM pool balances directly from the Alephium mainnet node,
- * then calculates swap output using the constant-product (x*y=k) formula.
- * Applies a 0.1% protocol fee (10 bps) on all swaps.
  */
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,7 +9,6 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// ─── In-memory IP rate limiter ───────────────────────────────
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX = 30;
 
@@ -35,13 +31,30 @@ setInterval(() => {
   for (const [ip, b] of rateBuckets) { if (now > b.resetAt) rateBuckets.delete(ip); }
 }, 300_000);
 
-// ─── Config ──────────────────────────────────────────────────
+function logEvent(functionName: string, eventType: string, ip: string, details: Record<string, unknown>, statusCode: number) {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    );
+    supabase.from('edge_function_logs').insert({
+      function_name: functionName,
+      event_type: eventType,
+      ip_address: ip,
+      details,
+      status_code: statusCode,
+    }).then(() => {});
+  } catch (e) {
+    console.error('Log insert failed:', e);
+  }
+}
+
+const FN_NAME = 'swap-alephium';
 const FEE_BPS = 10;
 const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
 const NODE_URL = 'https://node.mainnet.alephium.org';
 const ALPH_ID = '0000000000000000000000000000000000000000000000000000000000000000';
 
-// ─── Token Registry (official hex token IDs from alephium/token-list) ────
 interface TokenMeta { symbol: string; decimals: number; id: string }
 
 const TOKENS: Record<string, TokenMeta> = {
@@ -64,7 +77,6 @@ function resolveToken(input: string): TokenMeta | null {
   return null;
 }
 
-// ─── Ayin AMM Pool addresses (mainnet) ──────────────────────
 interface Pool { address: string; token0: string; token1: string }
 const POOLS: Pool[] = [
   { address: '2A5R8KZQ3rhKYrW7bAS4JTjY9FCFLJg6HjQpqSFZBqACX', token0: ALPH_ID, token1: TOKENS.USDT.id },
@@ -77,7 +89,6 @@ const POOLS: Pool[] = [
   { address: '27C75V9K5o9CkkGTMDQZ3x2eP82xnacraEqTYXA35Xuw5', token0: TOKENS.USDT.id, token1: TOKENS.USDC.id },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────
 const SELL_AMOUNT_RE = /^[0-9]{1,78}$/;
 
 function json(data: unknown, status = 200) {
@@ -90,7 +101,6 @@ function applyFee(raw: bigint) {
   return { buyAmount: raw - fee, feeAmount: fee };
 }
 
-/** Uniswap V2 constant-product AMM: 0.3% LP fee */
 function amountOut(amIn: bigint, rIn: bigint, rOut: bigint): bigint {
   if (amIn <= 0n || rIn <= 0n || rOut <= 0n) return 0n;
   const num = 997n * amIn * rOut;
@@ -98,7 +108,6 @@ function amountOut(amIn: bigint, rIn: bigint, rOut: bigint): bigint {
   return num / den;
 }
 
-/** Fetch all balances (ALPH + tokens) for an address */
 async function balances(addr: string): Promise<Map<string, bigint>> {
   const r = await fetch(`${NODE_URL}/addresses/${addr}/balance`);
   if (!r.ok) { await r.text(); return new Map(); }
@@ -109,22 +118,21 @@ async function balances(addr: string): Promise<Map<string, bigint>> {
   return m;
 }
 
-/** Find a direct pool for two tokens */
 function findPool(a: string, b: string): Pool | undefined {
   return POOLS.find(p =>
     (p.token0 === a && p.token1 === b) || (p.token0 === b && p.token1 === a)
   );
 }
 
-// ─── Handler ─────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
   if (req.method !== 'POST') return err('Method not allowed', 405);
 
-  // Rate limit by IP
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
              req.headers.get('cf-connecting-ip') || 'unknown';
+
   if (isRateLimited(ip)) {
+    logEvent(FN_NAME, 'rate_limit', ip, {}, 429);
     return new Response(
       JSON.stringify({ error: 'Too many requests. Please try again later.' }),
       { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
@@ -210,10 +218,12 @@ Deno.serve(async (req) => {
       return json(resp);
     } catch (e) {
       console.error('Reserve fetch error:', e);
+      logEvent(FN_NAME, 'api_error', ip, { error: 'reserve_fetch_failed', message: String(e) }, 502);
       return err('Failed to query on-chain pool reserves', 502);
     }
   } catch (e) {
     console.error('Internal error:', e);
+    logEvent(FN_NAME, 'internal_error', ip, { error: String(e) }, 500);
     return err('Internal server error', 500);
   }
 });
