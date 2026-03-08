@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAccount, useBalance, useReadContract, useSendTransaction } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
 import { toast } from "sonner";
+import SwapHistory, { addSwapTransaction } from "./SwapHistory";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
