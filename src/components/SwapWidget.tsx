@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount, useBalance, useReadContract, useSendTransaction } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
@@ -7,7 +7,9 @@ import { toast } from "sonner";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
-const AMOUNT_RE = /^\d*\.?\d*$/; // Only allow valid decimal numbers
+const AMOUNT_RE = /^\d*\.?\d*$/;
+const SLIPPAGE_PRESETS = [0.5, 1, 3] as const;
+const SLIPPAGE_RE = /^\d*\.?\d{0,2}$/;
 
 interface Token {
   symbol: string;
