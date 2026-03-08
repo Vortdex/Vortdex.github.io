@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAccount, useBalance, useReadContract, useSendTransaction } from "wagmi";
+import { useAccount, useBalance, useReadContract, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
 import { toast } from "sonner";
 import SwapHistory, { addSwapTransaction } from "./SwapHistory";
+import { supportedChains } from "@/lib/wagmi";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -20,18 +21,57 @@ interface Token {
   color: string;
 }
 
-const tokens: Token[] = [
-  { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 60%, 55%)" },
-  { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, color: "hsl(210, 80%, 55%)" },
-  { symbol: "USDT", name: "Tether", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, color: "hsl(160, 80%, 45%)" },
-  { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8, color: "hsl(30, 90%, 55%)" },
-  { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, color: "hsl(40, 90%, 55%)" },
-  { symbol: "WETH", name: "Wrapped Ether", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18, color: "hsl(220, 60%, 55%)" },
-  { symbol: "LINK", name: "Chainlink", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18, color: "hsl(220, 80%, 60%)" },
-  { symbol: "UNI", name: "Uniswap", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18, color: "hsl(330, 80%, 60%)" },
-  { symbol: "AAVE", name: "Aave", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, color: "hsl(270, 60%, 55%)" },
-  { symbol: "LDO", name: "Lido DAO", address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", decimals: 18, color: "hsl(195, 80%, 55%)" },
-];
+// Chain-specific token lists
+const TOKEN_LISTS: Record<number, Token[]> = {
+  1: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, color: "hsl(160, 80%, 45%)" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8, color: "hsl(30, 90%, 55%)" },
+    { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, color: "hsl(40, 90%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "LINK", name: "Chainlink", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18, color: "hsl(220, 80%, 60%)" },
+    { symbol: "UNI", name: "Uniswap", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18, color: "hsl(330, 80%, 60%)" },
+    { symbol: "AAVE", name: "Aave", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, color: "hsl(270, 60%, 55%)" },
+    { symbol: "LDO", name: "Lido DAO", address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", decimals: 18, color: "hsl(195, 80%, 55%)" },
+  ],
+  42161: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6, color: "hsl(160, 80%, 45%)" },
+    { symbol: "ARB", name: "Arbitrum", address: "0x912CE59144191C1204E64559FE8253a0e49E6548", decimals: 18, color: "hsl(210, 80%, 55%)" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", decimals: 8, color: "hsl(30, 90%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18, color: "hsl(220, 60%, 55%)" },
+  ],
+  137: [
+    { symbol: "MATIC", name: "Polygon", address: NATIVE_ETH, decimals: 18, color: "hsl(265, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6, color: "hsl(160, 80%, 45%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6", decimals: 8, color: "hsl(30, 90%, 55%)" },
+  ],
+  10: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(0, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "OP", name: "Optimism", address: "0x4200000000000000000000000000000000000042", decimals: 18, color: "hsl(0, 80%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6, color: "hsl(160, 80%, 45%)" },
+  ],
+  8453: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "cbBTC", name: "Coinbase BTC", address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8, color: "hsl(30, 90%, 55%)" },
+  ],
+  480: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(160, 70%, 50%)" },
+    { symbol: "WLD", name: "Worldcoin", address: "0x2cFc85d8E48F8EAB294be644d9E25C3030863003", decimals: 18, color: "hsl(160, 70%, 50%)" },
+    { symbol: "USDC.e", name: "Bridged USDC", address: "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, color: "hsl(220, 60%, 55%)" },
+  ],
+};
+
+const getTokensForChain = (chainId: number): Token[] => TOKEN_LISTS[chainId] || TOKEN_LISTS[1];
 
 // Hook to get token balance
 const useTokenBalance = (token: Token, address?: Address) => {
