@@ -572,11 +572,16 @@ const SwapWidget = () => {
   const insufficientBalance = fromBalance !== null && parseFloat(fromAmount || "0") > parseFloat(fromBalance);
 
   const getButtonState = () => {
-    if (!isConnected) return { label: "Wallet verbinden", disabled: true, action: () => {} };
+    if (!activeIsConnected) {
+      if (isAlephium) {
+        return { label: "Alephium Wallet verbinden", disabled: false, action: () => alphWallet.connect() };
+      }
+      return { label: "Wallet verbinden", disabled: true, action: () => {} };
+    }
     if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
     if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
-    if (insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
-    if (requiresApproval) return {
+    if (!isAlephium && insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
+    if (!isAlephium && requiresApproval) return {
       label: approving ? "Approval wird gesendet..." : `Permit2 Approval für ${fromToken.symbol}`,
       disabled: approving,
       action: handleApprove,
@@ -590,12 +595,16 @@ const SwapWidget = () => {
 
   const buttonState = getButtonState();
 
+  const routeLabel = isAlephium ? 'Alephium DEX' : '0x Aggregator';
+
   return (
     <section id="swap" className="py-20">
       <div className="container mx-auto px-4 max-w-lg">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-bold mb-2">Instant Swap</h2>
-          <p className="text-muted-foreground font-mono text-sm">via 0x Aggregator — Best Price Routing</p>
+          <p className="text-muted-foreground font-mono text-sm">
+            {isAlephium ? 'via Alephium DEX — On-Chain Routing' : 'via 0x Aggregator — Best Price Routing'}
+          </p>
         </div>
 
         <div className="glass-card rounded-2xl p-6 pulse-glow">
