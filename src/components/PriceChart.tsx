@@ -176,7 +176,7 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
                   y1={10 + c.yHigh}
                   x2={wickX}
                   y2={10 + c.yLow}
-                  stroke={c.isUp ? "hsl(160, 100%, 50%)" : "hsl(0, 80%, 55%)"}
+                  stroke={c.isUp ? "hsl(150, 100%, 45%)" : "hsl(0, 75%, 50%)"}
                   strokeWidth="1"
                   opacity="0.6"
                 />
