@@ -135,8 +135,8 @@ const BridgeSection = () => {
     setToChain(fromChain);
   };
 
-  const estimatedOutput = amount ? (parseFloat(amount) * 0.998).toFixed(6) : "";
-  const fee = amount ? (parseFloat(amount) * 0.002).toFixed(6) : "0";
+  const estimatedOutput = amount ? (parseFloat(amount) * 0.999).toFixed(6) : "";
+  const fee = amount ? (parseFloat(amount) * 0.001).toFixed(6) : "0";
   const isNonEvmRoute = fromChain.type === "non-evm" || toChain.type === "non-evm";
 
   const handleBridge = async () => {
