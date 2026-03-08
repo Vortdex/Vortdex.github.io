@@ -139,6 +139,7 @@ interface TokenSelectorProps {
   onSelect: (token: Token) => void;
   side: "from" | "to";
   walletAddress?: Address;
+  tokens: Token[];
 }
 
 const TokenSelector = ({ selectedToken, otherToken, onSelect, side, walletAddress }: TokenSelectorProps) => {
