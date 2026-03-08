@@ -15,6 +15,18 @@ const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 const AMOUNT_RE = /^\d*\.?\d*$/;
 const SLIPPAGE_PRESETS = [0.5, 1, 3] as const;
 const SLIPPAGE_RE = /^\d*\.?\d{0,2}$/;
+const ALPH_NODE_URL = "https://node.mainnet.alephium.org";
+
+// Alephium on-chain hex token IDs (from official token-list)
+const ALPH_TOKEN_IDS: Record<string, string> = {
+  ALPH: "0000000000000000000000000000000000000000000000000000000000000000",
+  USDT: "556d9582463fe44fbd108aedc9f409f69086dc78d994b88ea6c9e65f8bf98e00",
+  USDC: "722954d9067c5a5ad532746a024f2a9d7a18ed9b90e27d0a3a504962160b5600",
+  WETH: "19246e8c2899bc258a1156e08466e3cdd3323da756d8a543c7fc911847b96f00",
+  WBTC: "383bc735a4de6722af80546ec9eeb3cff508f2f68e97da19489ce69f3e703200",
+  AYIN: "1a281053ba8601a658368594da034c2e99a0fb951b86498d05e76aedfe666800",
+  DAI:  "3d0a1895108782acfa875c2829b0bf76cb586d95ffa4ea9855982667cc73b700",
+};
 
 interface Token {
   symbol: string;
@@ -103,7 +115,53 @@ const useTokenBalance = (token: Token, address?: Address) => {
   return null;
 };
 
-// Hook to check Permit2 allowance for ERC-20
+// Hook to fetch Alephium token balance from mainnet node
+const useAlephiumBalance = (tokenSymbol: string, alphAddress?: string) => {
+  const [balance, setBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!alphAddress) { setBalance(null); return; }
+    let cancelled = false;
+
+    const fetchBalance = async () => {
+      try {
+        const resp = await fetch(`${ALPH_NODE_URL}/addresses/${alphAddress}/balance`);
+        if (!resp.ok) { await resp.text(); return; }
+        const data = await resp.json();
+
+        const hexId = ALPH_TOKEN_IDS[tokenSymbol.toUpperCase()];
+        if (!hexId) return;
+
+        if (hexId === ALPH_TOKEN_IDS.ALPH) {
+          // Native ALPH balance
+          const raw = BigInt(data.balance || "0");
+          if (!cancelled) setBalance(formatUnits(raw, 18));
+        } else {
+          // Token balance
+          const tb = (data.tokenBalances || []).find((t: { id: string }) => t.id === hexId);
+          if (tb) {
+            // Look up decimals from token list
+            const decimals = tokenSymbol === "USDT" || tokenSymbol === "USDC" ? 6 : tokenSymbol === "WBTC" ? 8 : 18;
+            const raw = BigInt(tb.amount || "0");
+            if (!cancelled) setBalance(formatUnits(raw, decimals));
+          } else {
+            if (!cancelled) setBalance("0");
+          }
+        }
+      } catch {
+        if (!cancelled) setBalance(null);
+      }
+    };
+
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 15000); // refresh every 15s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [alphAddress, tokenSymbol]);
+
+  return balance;
+};
+
+
 const usePermit2Allowance = (token: Token, owner?: Address) => {
   const isNative = token.address === NATIVE_ETH;
 
@@ -385,8 +443,14 @@ const SwapWidget = () => {
 
   const priceImpactSeverity = priceImpact === null ? "none" : priceImpact < 1 ? "low" : priceImpact < 3 ? "medium" : "high";
 
-  const fromBalance = useTokenBalance(fromToken, address as Address | undefined);
-  const toBalance = useTokenBalance(toToken, address as Address | undefined);
+  const evmFromBalance = useTokenBalance(fromToken, address as Address | undefined);
+  const evmToBalance = useTokenBalance(toToken, address as Address | undefined);
+  const alphFromBalance = useAlephiumBalance(fromToken.symbol, alphWallet.address);
+  const alphToBalance = useAlephiumBalance(toToken.symbol, alphWallet.address);
+
+  const fromBalance = isAlephium ? alphFromBalance : evmFromBalance;
+  const toBalance = isAlephium ? alphToBalance : evmToBalance;
+
   const { needsApproval, refetch: refetchAllowance } = usePermit2Allowance(fromToken, address as Address | undefined);
   const { sendTransactionAsync } = useSendTransaction();
 
@@ -578,10 +642,10 @@ const SwapWidget = () => {
       }
       return { label: "Wallet verbinden", disabled: true, action: () => {} };
     }
-    if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
-    if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
-    if (!isAlephium && insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
-    if (!isAlephium && requiresApproval) return {
+     if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
+     if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
+     if (insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
+     if (!isAlephium && requiresApproval) return {
       label: approving ? "Approval wird gesendet..." : `Permit2 Approval für ${fromToken.symbol}`,
       disabled: approving,
       action: handleApprove,
@@ -719,24 +783,20 @@ const SwapWidget = () => {
           <div className="bg-muted/50 rounded-xl p-4 mb-2">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Von</span>
-              {isAlephium ? (
-                <span className="font-mono flex items-center gap-1.5">
+              <span className="font-mono flex items-center gap-1.5">
+                {isAlephium && alphWallet.isConnected && (
                   <Wallet className="w-3 h-3" />
-                  {alphWallet.isConnected ? `${alphWallet.address?.slice(0, 6)}...${alphWallet.address?.slice(-4)}` : 'Nicht verbunden'}
-                </span>
-              ) : (
-                <span className="font-mono flex items-center gap-1.5">
-                  Balance: {formatBalance(fromBalance)}
-                  {fromBalance && parseFloat(fromBalance) > 0 && (
-                    <button
-                      onClick={() => setFromAmount(fromBalance)}
-                      className="text-primary hover:underline text-xs"
-                    >
-                      MAX
-                    </button>
-                  )}
-                </span>
-              )}
+                )}
+                Balance: {formatBalance(fromBalance)}
+                {fromBalance && parseFloat(fromBalance) > 0 && (
+                  <button
+                    onClick={() => setFromAmount(fromBalance)}
+                    className="text-primary hover:underline text-xs"
+                  >
+                    MAX
+                  </button>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <input
