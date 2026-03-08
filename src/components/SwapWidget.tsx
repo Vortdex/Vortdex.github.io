@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount, useBalance, useReadContract, useSendTransaction } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
@@ -7,7 +7,9 @@ import { toast } from "sonner";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
-const AMOUNT_RE = /^\d*\.?\d*$/; // Only allow valid decimal numbers
+const AMOUNT_RE = /^\d*\.?\d*$/;
+const SLIPPAGE_PRESETS = [0.5, 1, 3] as const;
+const SLIPPAGE_RE = /^\d*\.?\d{0,2}$/;
 
 interface Token {
   symbol: string;
@@ -253,6 +255,41 @@ const SwapWidget = () => {
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [quoteData, setQuoteData] = useState<any>(null);
+  const [slippage, setSlippage] = useState(1);
+  const [customSlippage, setCustomSlippage] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+  const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Close settings on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Compute price impact from quote data
+  const priceImpact = (() => {
+    if (!quoteData || !fromAmount) return null;
+    const sellAmountNum = parseFloat(fromAmount);
+    if (sellAmountNum <= 0) return null;
+    const buyAmountRaw = Number(quoteData.buyAmount) / 10 ** toToken.decimals;
+    const totalBeforeFees = buyAmountRaw +
+      (quoteData.fees?.integratorFee?.amount ? Number(quoteData.fees.integratorFee.amount) / 10 ** toToken.decimals : 0) +
+      (quoteData.fees?.zeroExFee?.amount ? Number(quoteData.fees.zeroExFee.amount) / 10 ** toToken.decimals : 0);
+    // Estimate market rate from first fill proportion — simplified: compare minBuyAmount vs buyAmount
+    if (quoteData.minBuyAmount) {
+      const minBuy = Number(quoteData.minBuyAmount) / 10 ** toToken.decimals;
+      const impact = ((totalBeforeFees - buyAmountRaw) / totalBeforeFees) * 100;
+      return Math.abs(impact);
+    }
+    return null;
+  })();
+
+  const priceImpactSeverity = priceImpact === null ? "none" : priceImpact < 1 ? "low" : priceImpact < 3 ? "medium" : "high";
 
   const fromBalance = useTokenBalance(fromToken, address as Address | undefined);
   const toBalance = useTokenBalance(toToken, address as Address | undefined);
@@ -430,6 +467,70 @@ const SwapWidget = () => {
         </div>
 
         <div className="glass-card rounded-2xl p-6 pulse-glow">
+          {/* Header with settings */}
+          <div className="flex items-center justify-between mb-4">
+            <span className="font-mono font-semibold text-foreground text-sm">Swap</span>
+            <div className="relative" ref={settingsRef}>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-2 rounded-lg transition-all ${showSettings ? "bg-primary/15 text-primary" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
+              >
+                <Settings2 className="w-4 h-4" />
+              </button>
+              {showSettings && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="text-sm font-mono font-semibold text-foreground mb-3">Slippage Toleranz</div>
+                  <div className="flex items-center gap-2 mb-3">
+                    {SLIPPAGE_PRESETS.map((preset) => (
+                      <button
+                        key={preset}
+                        onClick={() => { setSlippage(preset); setCustomSlippage(""); }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
+                          slippage === preset && !customSlippage
+                            ? "bg-primary/15 border-primary/30 text-primary"
+                            : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {preset}%
+                      </button>
+                    ))}
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={customSlippage}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "" || SLIPPAGE_RE.test(v)) {
+                            setCustomSlippage(v);
+                            const num = parseFloat(v);
+                            if (num > 0 && num <= 50) setSlippage(num);
+                          }
+                        }}
+                        placeholder="Custom"
+                        className={`w-full py-1.5 px-2 rounded-lg text-xs font-mono border outline-none bg-muted/30 transition-all ${
+                          customSlippage ? "border-primary/30 text-primary" : "border-border text-muted-foreground"
+                        }`}
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">%</span>
+                    </div>
+                  </div>
+                  {slippage > 5 && (
+                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Hohe Slippage — Frontrunning-Risiko</span>
+                    </div>
+                  )}
+                  {slippage < 0.1 && (
+                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Zu niedrig — Transaktion könnte fehlschlagen</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* From */}
           <div className="bg-muted/50 rounded-xl p-4 mb-2">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
@@ -533,6 +634,45 @@ const SwapWidget = () => {
                   <Info className="w-3 h-3" /> Rate
                 </span>
                 <span className="font-mono text-foreground">1 {fromToken.symbol} = {rate} {toToken.symbol}</span>
+              </div>
+            )}
+            {/* Slippage */}
+            <div className="flex items-center justify-between text-sm mt-2">
+              <span className="text-muted-foreground">Slippage Toleranz</span>
+              <span className={`font-mono text-xs ${slippage > 5 ? "text-amber-400" : "text-foreground"}`}>{slippage}%</span>
+            </div>
+            {/* Min received */}
+            {toAmount && (
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-muted-foreground">Min. erhalten</span>
+                <span className="font-mono text-xs text-foreground">
+                  {(parseFloat(toAmount.replace(/,/g, "")) * (1 - slippage / 100)).toLocaleString("en-US", { maximumFractionDigits: 6 })} {toToken.symbol}
+                </span>
+              </div>
+            )}
+            {/* Price Impact */}
+            {priceImpact !== null && (
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  {priceImpactSeverity === "high" && <AlertTriangle className="w-3 h-3 text-destructive" />}
+                  {priceImpactSeverity === "medium" && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                  Preis-Impact
+                </span>
+                <span className={`font-mono text-xs ${
+                  priceImpactSeverity === "high" ? "text-destructive font-bold" :
+                  priceImpactSeverity === "medium" ? "text-amber-400" : "text-emerald-400"
+                }`}>
+                  {priceImpact < 0.01 ? "<0.01" : priceImpact.toFixed(2)}%
+                </span>
+              </div>
+            )}
+            {/* High price impact warning */}
+            {priceImpactSeverity === "high" && (
+              <div className="mt-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+                <span className="text-xs font-mono text-destructive">
+                  Hoher Preis-Impact! Du verlierst möglicherweise einen erheblichen Betrag durch diese Transaktion.
+                </span>
               </div>
             )}
             <div className="flex items-center justify-between text-sm mt-2">
