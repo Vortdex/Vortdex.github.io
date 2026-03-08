@@ -186,7 +186,7 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
                   y={10 + Math.min(c.yOpen, c.yClose)}
                   width={candleW}
                   height={Math.max(1, Math.abs(c.yClose - c.yOpen))}
-                  fill={c.isUp ? "hsl(160, 100%, 50%)" : "hsl(0, 80%, 55%)"}
+                  fill={c.isUp ? "hsl(150, 100%, 45%)" : "hsl(0, 75%, 50%)"}
                   opacity="0.85"
                   rx="0.5"
                 />
