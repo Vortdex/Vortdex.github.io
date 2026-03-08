@@ -1,8 +1,44 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// ─── CORS (restricted to production + preview origins) ───────
+const ALLOWED_ORIGINS = [
+  'https://vortexdex.lovable.app',
+  'https://id-preview--ea5bca81-d8f9-4107-944e-23e0e350fc10.lovable.app',
+];
 
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  };
+}
+
+// ─── In-memory IP rate limiter (resets on cold start) ────────
+const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
+const RATE_LIMIT_MAX = 30; // max requests per window per IP
+
+interface RateBucket { count: number; resetAt: number }
+const rateBuckets = new Map<string, RateBucket>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  bucket.count++;
+  return bucket.count > RATE_LIMIT_MAX;
+}
+
+// Periodically clean stale buckets (every 5 min)
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, b] of rateBuckets) { if (now > b.resetAt) rateBuckets.delete(ip); }
+}, 300_000);
+
+// ─── Config ──────────────────────────────────────────────────
 const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
 const FEE_BPS = '10'; // 0.1% = 10 basis points
 
@@ -16,15 +52,26 @@ function isValidAddress(addr: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Only allow POST
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Rate limit by IP
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+             req.headers.get('cf-connecting-ip') || 'unknown';
+  if (isRateLimited(ip)) {
+    return new Response(
+      JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
     );
   }
 
@@ -49,7 +96,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate addresses
     if (!isValidAddress(sellToken)) {
       return new Response(
         JSON.stringify({ error: 'Invalid sellToken address' }),
@@ -63,7 +109,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate sellAmount is a valid positive integer (wei)
     if (!SELL_AMOUNT_RE.test(sellAmount) || sellAmount === '0') {
       return new Response(
         JSON.stringify({ error: 'sellAmount must be a positive integer string (in wei)' }),
@@ -71,7 +116,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate chainId
     const chain = typeof chainId === 'number' ? chainId : 1;
     if (!VALID_CHAIN_IDS.includes(chain)) {
       return new Response(

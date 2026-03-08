@@ -1,10 +1,45 @@
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// ─── CORS (restricted to production + preview origins) ───────
+const ALLOWED_ORIGINS = [
+  'https://vortexdex.lovable.app',
+  'https://id-preview--ea5bca81-d8f9-4107-944e-23e0e350fc10.lovable.app',
+];
 
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  };
+}
+
+// ─── In-memory IP rate limiter ───────────────────────────────
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 20; // quotes are heavier, stricter limit
+
+interface RateBucket { count: number; resetAt: number }
+const rateBuckets = new Map<string, RateBucket>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  bucket.count++;
+  return bucket.count > RATE_LIMIT_MAX;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, b] of rateBuckets) { if (now > b.resetAt) rateBuckets.delete(ip); }
+}, 300_000);
+
+// ─── Config ──────────────────────────────────────────────────
 const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
-const FEE_BPS = '10'; // 0.1% = 10 basis points
+const FEE_BPS = '10';
 
 const VALID_CHAIN_IDS = [1, 42161, 137, 10, 8453, 480];
 const ETH_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -16,6 +51,8 @@ function isValidAddress(addr: string): boolean {
 }
 
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,6 +61,16 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Rate limit by IP
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+             req.headers.get('cf-connecting-ip') || 'unknown';
+  if (isRateLimited(ip)) {
+    return new Response(
+      JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
     );
   }
 
@@ -75,7 +122,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // taker is REQUIRED for quote (needed for executable transaction)
+    // taker is REQUIRED for quote
     if (!taker || typeof taker !== 'string' || !ETH_ADDRESS_RE.test(taker)) {
       return new Response(
         JSON.stringify({ error: 'A valid taker address is required for quotes' }),

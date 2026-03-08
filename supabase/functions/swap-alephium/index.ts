@@ -6,12 +6,46 @@
  * Applies a 0.1% protocol fee (10 bps) on all swaps.
  */
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+// ─── CORS (restricted to production + preview origins) ───────
+const ALLOWED_ORIGINS = [
+  'https://vortexdex.lovable.app',
+  'https://id-preview--ea5bca81-d8f9-4107-944e-23e0e350fc10.lovable.app',
+];
 
+function getCorsHeaders(req: Request) {
+  const origin = req.headers.get('origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  };
+}
+
+// ─── In-memory IP rate limiter ───────────────────────────────
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 30;
+
+interface RateBucket { count: number; resetAt: number }
+const rateBuckets = new Map<string, RateBucket>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(ip);
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  bucket.count++;
+  return bucket.count > RATE_LIMIT_MAX;
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, b] of rateBuckets) { if (now > b.resetAt) rateBuckets.delete(ip); }
+}, 300_000);
+
+// ─── Config ──────────────────────────────────────────────────
 const FEE_BPS = 10;
 const FEE_RECIPIENT = '0x03D7BD4795141Efd0be2A24678CaA13bdd5E1F13';
 const NODE_URL = 'https://node.mainnet.alephium.org';
@@ -30,22 +64,17 @@ const TOKENS: Record<string, TokenMeta> = {
   DAI:   { symbol: 'DAI',   decimals: 18, id: '3d0a1895108782acfa875c2829b0bf76cb586d95ffa4ea9855982667cc73b700' },
 };
 
-// Reverse lookup: hex id → symbol
 const ID_TO_SYMBOL = new Map(Object.values(TOKENS).map(t => [t.id, t.symbol]));
 
-// Accept both symbol and hex ID as input
 function resolveToken(input: string): TokenMeta | null {
-  // By symbol
   if (TOKENS[input.toUpperCase()]) return TOKENS[input.toUpperCase()];
-  // By hex ID
   const sym = ID_TO_SYMBOL.get(input);
   if (sym) return TOKENS[sym];
-  // Legacy: 'native' = ALPH
   if (input === 'native') return TOKENS.ALPH;
   return null;
 }
 
-// ─── Ayin AMM Pool addresses (mainnet, from DefiLlama/ayin adapter) ─────
+// ─── Ayin AMM Pool addresses (mainnet) ──────────────────────
 interface Pool { address: string; token0: string; token1: string }
 const POOLS: Pool[] = [
   { address: '2A5R8KZQ3rhKYrW7bAS4JTjY9FCFLJg6HjQpqSFZBqACX', token0: ALPH_ID, token1: TOKENS.USDT.id },
@@ -61,10 +90,10 @@ const POOLS: Pool[] = [
 // ─── Helpers ─────────────────────────────────────────────────
 const SELL_AMOUNT_RE = /^[0-9]{1,78}$/;
 
-function json(data: unknown, status = 200) {
+function json(data: unknown, corsHeaders: Record<string, string>, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
-function err(message: string, status = 400) { return json({ error: message }, status); }
+function err(message: string, corsHeaders: Record<string, string>, status = 400) { return json({ error: message }, corsHeaders, status); }
 
 function applyFee(raw: bigint) {
   const fee = (raw * BigInt(FEE_BPS)) / 10000n;
@@ -99,28 +128,40 @@ function findPool(a: string, b: string): Pool | undefined {
 
 // ─── Handler ─────────────────────────────────────────────────
 Deno.serve(async (req) => {
+  const corsHeaders = getCorsHeaders(req);
+
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-  if (req.method !== 'POST') return err('Method not allowed', 405);
+  if (req.method !== 'POST') return err('Method not allowed', corsHeaders, 405);
+
+  // Rate limit by IP
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+             req.headers.get('cf-connecting-ip') || 'unknown';
+  if (isRateLimited(ip)) {
+    return new Response(
+      JSON.stringify({ error: 'Too many requests. Please try again later.' }),
+      { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': '60' } }
+    );
+  }
 
   try {
     let body: Record<string, unknown>;
-    try { body = await req.json(); } catch { return err('Invalid JSON body'); }
+    try { body = await req.json(); } catch { return err('Invalid JSON body', corsHeaders); }
 
     const { sellToken, buyToken, sellAmount, taker, mode } = body;
     if (typeof sellToken !== 'string' || typeof buyToken !== 'string' || typeof sellAmount !== 'string')
-      return err('sellToken, buyToken (string) and sellAmount (string) are required');
+      return err('sellToken, buyToken (string) and sellAmount (string) are required', corsHeaders);
     if (!SELL_AMOUNT_RE.test(sellAmount) || sellAmount === '0')
-      return err('sellAmount must be a positive integer string');
+      return err('sellAmount must be a positive integer string', corsHeaders);
 
     const sell = resolveToken(sellToken);
     const buy  = resolveToken(buyToken);
-    if (!sell) return err(`Unknown sellToken: ${sellToken}`);
-    if (!buy)  return err(`Unknown buyToken: ${buyToken}`);
-    if (sell.id === buy.id) return err('sellToken and buyToken must be different');
+    if (!sell) return err(`Unknown sellToken: ${sellToken}`, corsHeaders);
+    if (!buy)  return err(`Unknown buyToken: ${buyToken}`, corsHeaders);
+    if (sell.id === buy.id) return err('sellToken and buyToken must be different', corsHeaders);
 
     const isQuote = mode === 'quote';
     if (isQuote && (!taker || typeof taker !== 'string'))
-      return err('A valid taker address is required for quotes');
+      return err('A valid taker address is required for quotes', corsHeaders);
 
     const amIn = BigInt(sellAmount);
 
@@ -140,7 +181,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 2) Multi-hop through ALPH (if no direct pool or no liquidity)
+      // 2) Multi-hop through ALPH
       if (rawOut <= 0n && sell.id !== ALPH_ID && buy.id !== ALPH_ID) {
         const pool1 = findPool(sell.id, ALPH_ID);
         const pool2 = findPool(ALPH_ID, buy.id);
@@ -158,7 +199,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (rawOut <= 0n) return err('No liquidity available for this pair on Ayin DEX', 422);
+      if (rawOut <= 0n) return err('No liquidity available for this pair on Ayin DEX', corsHeaders, 422);
 
       const { buyAmount, feeAmount } = applyFee(rawOut);
       const minBuy = (buyAmount * 97n) / 100n;
@@ -180,13 +221,13 @@ Deno.serve(async (req) => {
         };
       }
 
-      return json(resp);
+      return json(resp, corsHeaders);
     } catch (e) {
       console.error('Reserve fetch error:', e);
-      return err('Failed to query on-chain pool reserves', 502);
+      return err('Failed to query on-chain pool reserves', corsHeaders, 502);
     }
   } catch (e) {
     console.error('Internal error:', e);
-    return err('Internal server error', 500);
+    return err('Internal server error', corsHeaders, 500);
   }
 });
