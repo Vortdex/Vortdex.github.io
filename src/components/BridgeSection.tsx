@@ -180,16 +180,16 @@ const BridgeSection = () => {
   };
 
   return (
-    <section id="bridge" className="py-20">
+    <section id="bridge" className="py-16">
       <div className="container mx-auto px-4 max-w-lg">
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-2">Cross-Chain Bridge</h2>
-          <p className="text-muted-foreground font-mono text-sm">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-display font-bold mb-1">Cross-Chain <span className="gradient-text">Bridge</span></h2>
+          <p className="text-muted-foreground font-mono text-xs">
             Alephium · Pi Network · EVM Chains
           </p>
         </div>
 
-        <div className="glass-card rounded-2xl p-6 pulse-glow">
+        <div className="glass-card rounded-xl p-5 pulse-glow">
           {/* Chain selectors */}
           <div className="flex items-end gap-3 mb-4">
             <ChainSelector

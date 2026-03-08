@@ -110,13 +110,13 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
 
   if (!chartData || !stats) return null;
 
-  return (
-    <div className={`rounded-xl border border-border bg-card/50 p-4 ${className}`}>
+    return (
+    <div className={`rounded-lg border border-border bg-card/50 p-3 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-sm text-foreground">{symbol}/USD</span>
-          <span className="text-xs text-muted-foreground font-mono">24h</span>
+          <span className="font-mono font-bold text-xs text-foreground">{symbol}/USD</span>
+          <span className="text-[10px] text-muted-foreground font-mono">24h</span>
           {loading && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
         </div>
         <div className="flex items-center gap-2">
@@ -125,15 +125,15 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
           ) : (
             <TrendingDown className="w-4 h-4 text-red-400" />
           )}
-          <span className={`font-mono text-sm font-bold ${stats.isUp ? "text-emerald-400" : "text-red-400"}`}>
+          <span className={`font-mono text-xs font-bold ${stats.isUp ? "text-primary" : "text-destructive"}`}>
             {stats.change >= 0 ? "+" : ""}{stats.change.toFixed(2)}%
           </span>
         </div>
       </div>
 
       {/* Price */}
-      <div className="mb-3">
-        <span className="font-mono text-xl font-bold text-foreground">
+      <div className="mb-2">
+        <span className="font-mono text-lg font-bold text-foreground">
           ${stats.price < 1 ? stats.price.toFixed(6) : stats.price < 100 ? stats.price.toFixed(2) : stats.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}
         </span>
       </div>
@@ -176,7 +176,7 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
                   y1={10 + c.yHigh}
                   x2={wickX}
                   y2={10 + c.yLow}
-                  stroke={c.isUp ? "hsl(160, 100%, 50%)" : "hsl(0, 80%, 55%)"}
+                  stroke={c.isUp ? "hsl(150, 100%, 45%)" : "hsl(0, 75%, 50%)"}
                   strokeWidth="1"
                   opacity="0.6"
                 />
@@ -186,7 +186,7 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
                   y={10 + Math.min(c.yOpen, c.yClose)}
                   width={candleW}
                   height={Math.max(1, Math.abs(c.yClose - c.yOpen))}
-                  fill={c.isUp ? "hsl(160, 100%, 50%)" : "hsl(0, 80%, 55%)"}
+                  fill={c.isUp ? "hsl(150, 100%, 45%)" : "hsl(0, 75%, 50%)"}
                   opacity="0.85"
                   rx="0.5"
                 />
