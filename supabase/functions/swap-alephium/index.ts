@@ -6,22 +6,11 @@
  * Applies a 0.1% protocol fee (10 bps) on all swaps.
  */
 
-// ─── CORS (restricted to production + preview origins) ───────
-const ALLOWED_ORIGINS = [
-  'https://vortexdex.lovable.app',
-  'https://id-preview--ea5bca81-d8f9-4107-944e-23e0e350fc10.lovable.app',
-  'https://ea5bca81-d8f9-4107-944e-23e0e350fc10.lovableproject.com',
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get('origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  };
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
 
 // ─── In-memory IP rate limiter ───────────────────────────────
 const RATE_LIMIT_WINDOW_MS = 60_000;
