@@ -132,8 +132,8 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
       </div>
 
       {/* Price */}
-      <div className="mb-3">
-        <span className="font-mono text-xl font-bold text-foreground">
+      <div className="mb-2">
+        <span className="font-mono text-lg font-bold text-foreground">
           ${stats.price < 1 ? stats.price.toFixed(6) : stats.price < 100 ? stats.price.toFixed(2) : stats.price.toLocaleString("en-US", { maximumFractionDigits: 2 })}
         </span>
       </div>
