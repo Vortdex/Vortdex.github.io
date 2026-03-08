@@ -605,63 +605,65 @@ const SwapWidget = () => {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className={`p-2 rounded-lg transition-all ${showSettings ? "bg-primary/15 text-primary" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
-              >
-                <Settings2 className="w-4 h-4" />
-              </button>
-              {showSettings && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="text-sm font-mono font-semibold text-foreground mb-3">Slippage Toleranz</div>
-                  <div className="flex items-center gap-2 mb-3">
-                    {SLIPPAGE_PRESETS.map((preset) => (
-                      <button
-                        key={preset}
-                        onClick={() => { setSlippage(preset); setCustomSlippage(""); }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
-                          slippage === preset && !customSlippage
-                            ? "bg-primary/15 border-primary/30 text-primary"
-                            : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
-                        }`}
-                      >
-                        {preset}%
-                      </button>
-                    ))}
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={customSlippage}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === "" || SLIPPAGE_RE.test(v)) {
-                            setCustomSlippage(v);
-                            const num = parseFloat(v);
-                            if (num > 0 && num <= 50) setSlippage(num);
-                          }
-                        }}
-                        placeholder="Custom"
-                        className={`w-full py-1.5 px-2 rounded-lg text-xs font-mono border outline-none bg-muted/30 transition-all ${
-                          customSlippage ? "border-primary/30 text-primary" : "border-border text-muted-foreground"
-                        }`}
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">%</span>
+              <div className="relative" ref={settingsRef}>
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-2 rounded-lg transition-all ${showSettings ? "bg-primary/15 text-primary" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Settings2 className="w-4 h-4" />
+                </button>
+                {showSettings && (
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="text-sm font-mono font-semibold text-foreground mb-3">Slippage Toleranz</div>
+                    <div className="flex items-center gap-2 mb-3">
+                      {SLIPPAGE_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => { setSlippage(preset); setCustomSlippage(""); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
+                            slippage === preset && !customSlippage
+                              ? "bg-primary/15 border-primary/30 text-primary"
+                              : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {preset}%
+                        </button>
+                      ))}
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={customSlippage}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || SLIPPAGE_RE.test(v)) {
+                              setCustomSlippage(v);
+                              const num = parseFloat(v);
+                              if (num > 0 && num <= 50) setSlippage(num);
+                            }
+                          }}
+                          placeholder="Custom"
+                          className={`w-full py-1.5 px-2 rounded-lg text-xs font-mono border outline-none bg-muted/30 transition-all ${
+                            customSlippage ? "border-primary/30 text-primary" : "border-border text-muted-foreground"
+                          }`}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">%</span>
+                      </div>
                     </div>
+                    {slippage > 5 && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Hohe Slippage — Frontrunning-Risiko</span>
+                      </div>
+                    )}
+                    {slippage < 0.1 && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Zu niedrig — Transaktion könnte fehlschlagen</span>
+                      </div>
+                    )}
                   </div>
-                  {slippage > 5 && (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Hohe Slippage — Frontrunning-Risiko</span>
-                    </div>
-                  )}
-                  {slippage < 0.1 && (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Zu niedrig — Transaktion könnte fehlschlagen</span>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
