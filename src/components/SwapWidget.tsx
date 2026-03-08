@@ -291,11 +291,21 @@ const TokenRow = ({ token, isSelected, walletAddress, onClick }: {
 const SwapWidget = () => {
   const { address, isConnected, chain } = useAccount();
   const { switchChain } = useSwitchChain();
-  const [selectedChainId, setSelectedChainId] = useState(1);
+  const alphWallet = useAlephiumWallet();
+  const [selectedChainId, setSelectedChainId] = useState<number | string>(1);
   const [chainSelectorOpen, setChainSelectorOpen] = useState(false);
   const chainSelectorRef = useRef<HTMLDivElement>(null);
 
-  const tokens = useMemo(() => getTokensForChain(selectedChainId), [selectedChainId]);
+  const allChains = useMemo(() => getAllChains(), []);
+  const currentChainInfo = useMemo(() => allChains.find(c => c.id === selectedChainId), [allChains, selectedChainId]);
+  const isAlephium = currentChainInfo?.isEvm === false;
+
+  const adapter = useMemo(() => getAdapterForChain(selectedChainId), [selectedChainId]);
+  const tokens = useMemo(() => {
+    if (adapter) return adapter.getTokens(selectedChainId);
+    return getTokensForChain(Number(selectedChainId));
+  }, [selectedChainId, adapter]);
+
   const [fromToken, setFromToken] = useState(tokens[0]);
   const [toToken, setToToken] = useState(tokens[1]);
   const [fromAmount, setFromAmount] = useState("1.0");
@@ -310,6 +320,10 @@ const SwapWidget = () => {
   const [customSlippage, setCustomSlippage] = useState("");
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+
+  // Active wallet address (EVM or Alephium)
+  const activeAddress = isAlephium ? alphWallet.address : address;
+  const activeIsConnected = isAlephium ? alphWallet.isConnected : isConnected;
 
   // Close settings on outside click
   useEffect(() => {
@@ -334,16 +348,19 @@ const SwapWidget = () => {
   }, []);
 
   // When chain changes, reset tokens
-  const handleChainSwitch = useCallback((chainId: number) => {
+  const handleChainSwitch = useCallback((chainId: number | string) => {
     setSelectedChainId(chainId);
-    const newTokens = getTokensForChain(chainId);
+    const adp = getAdapterForChain(chainId);
+    const newTokens = adp ? adp.getTokens(chainId) : getTokensForChain(Number(chainId));
     setFromToken(newTokens[0]);
     setToToken(newTokens[1]);
     setToAmount("");
     setRate(null);
     setQuoteData(null);
     setChainSelectorOpen(false);
-    if (isConnected) {
+    // Only switch EVM chain if it's an EVM chain
+    const chainInfo = getAllChains().find(c => c.id === chainId);
+    if (chainInfo?.isEvm && isConnected && typeof chainId === 'number') {
       switchChain?.({ chainId });
     }
   }, [isConnected, switchChain]);
