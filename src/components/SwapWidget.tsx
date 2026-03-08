@@ -720,9 +720,11 @@ const SwapWidget = () => {
             onClick={buttonState.action}
             className="w-full mt-4 py-4 rounded-xl bg-primary text-primary-foreground font-mono font-bold text-lg hover:shadow-[0_0_40px_hsl(160_100%_50%/0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {(swapping || approving) && <Loader2 className="w-5 h-5 animate-spin" />}
+          {(swapping || approving) && <Loader2 className="w-5 h-5 animate-spin" />}
             {buttonState.label}
           </button>
+
+          <SwapHistory />
         </div>
       </div>
     </section>
