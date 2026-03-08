@@ -411,6 +411,16 @@ const SwapWidget = () => {
         gasPrice: data.transaction.gasPrice ? BigInt(data.transaction.gasPrice) : undefined,
       });
 
+      addSwapTransaction({
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        fromAmount,
+        toAmount,
+        txHash: typeof txHash === "string" ? txHash : txHash?.hash,
+        status: "completed",
+        slippage,
+      });
+
       toast.success(
         <div className="font-mono text-sm">
           <div className="font-bold text-primary">Swap erfolgreich! ✓</div>
@@ -425,6 +435,14 @@ const SwapWidget = () => {
       setToAmount("");
       setQuoteData(null);
     } catch (err: any) {
+      addSwapTransaction({
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        fromAmount,
+        toAmount,
+        status: "failed",
+        slippage,
+      });
       const msg = err.shortMessage || err.message || "Swap fehlgeschlagen";
       setError(msg);
       toast.error(msg);
