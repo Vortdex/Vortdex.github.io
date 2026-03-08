@@ -80,10 +80,10 @@ const POOLS: Pool[] = [
 // ─── Helpers ─────────────────────────────────────────────────
 const SELL_AMOUNT_RE = /^[0-9]{1,78}$/;
 
-function json(data: unknown, corsHeaders: Record<string, string>, status = 200) {
+function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
-function err(message: string, corsHeaders: Record<string, string>, status = 400) { return json({ error: message }, corsHeaders, status); }
+function err(message: string, status = 400) { return json({ error: message }, status); }
 
 function applyFee(raw: bigint) {
   const fee = (raw * BigInt(FEE_BPS)) / 10000n;
