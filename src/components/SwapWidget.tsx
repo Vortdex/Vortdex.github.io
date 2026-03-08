@@ -642,10 +642,10 @@ const SwapWidget = () => {
       }
       return { label: "Wallet verbinden", disabled: true, action: () => {} };
     }
-    if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
-    if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
-    if (!isAlephium && insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
-    if (!isAlephium && requiresApproval) return {
+     if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
+     if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
+     if (insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
+     if (!isAlephium && requiresApproval) return {
       label: approving ? "Approval wird gesendet..." : `Permit2 Approval für ${fromToken.symbol}`,
       disabled: approving,
       action: handleApprove,
