@@ -450,7 +450,7 @@ const SwapWidget = () => {
               <input
                 type="text"
                 value={fromAmount}
-                onChange={(e) => setFromAmount(e.target.value)}
+                onChange={(e) => { if (AMOUNT_RE.test(e.target.value)) setFromAmount(e.target.value); }}
                 className={`bg-transparent text-3xl font-mono font-bold outline-none w-full ${
                   insufficientBalance ? "text-destructive" : "text-foreground"
                 }`}
