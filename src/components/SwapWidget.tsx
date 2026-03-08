@@ -463,7 +463,7 @@ const SwapWidget = () => {
           sellToken: fromToken.address,
           buyToken: toToken.address,
           sellAmount,
-          chainId: 1,
+          chainId: selectedChainId,
           taker: address,
         },
       });
