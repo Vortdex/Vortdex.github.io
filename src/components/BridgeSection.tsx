@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { ArrowRight, Shield, Clock, ChevronDown, Loader2, ExternalLink, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ArrowRight, Shield, Clock, ChevronDown, ExternalLink, AlertTriangle } from "lucide-react";
+import { useAccount } from "wagmi";
+import { toast } from "sonner";
+import BridgeHistory, { addBridgeTransaction, loadBridgeHistory, type BridgeTransaction } from "./BridgeHistory";
 
 interface BridgeChain {
   id: string;
@@ -43,10 +46,19 @@ interface ChainSelectorProps {
 
 const ChainSelector = ({ selected, onSelect, exclude, label }: ChainSelectorProps) => {
   const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
   const available = chains.filter((c) => c.id !== exclude);
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
   return (
-    <div className="relative flex-1">
+    <div className="relative flex-1" ref={ref}>
       <div className="text-xs text-muted-foreground font-mono mb-2">{label}</div>
       <button
         onClick={() => setOpen(!open)}
@@ -96,11 +108,23 @@ const ChainSelector = ({ selected, onSelect, exclude, label }: ChainSelectorProp
 };
 
 const BridgeSection = () => {
+  const { isConnected } = useAccount();
   const [fromChain, setFromChain] = useState(chains[0]);
   const [toChain, setToChain] = useState(chains[1]);
   const [selectedToken, setSelectedToken] = useState(bridgeTokens[0]);
   const [amount, setAmount] = useState("");
   const [tokenOpen, setTokenOpen] = useState(false);
+  const [bridging, setBridging] = useState(false);
+  const [historyKey, setHistoryKey] = useState(0);
+  const tokenRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tokenRef.current && !tokenRef.current.contains(e.target as Node)) setTokenOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   const availableTokens = bridgeTokens.filter(
     (t) => t.chains.includes(fromChain.id) && t.chains.includes(toChain.id)
@@ -111,11 +135,49 @@ const BridgeSection = () => {
     setToChain(fromChain);
   };
 
-  // Estimate (mock): bridges usually show ~same amount minus fee
   const estimatedOutput = amount ? (parseFloat(amount) * 0.998).toFixed(6) : "";
   const fee = amount ? (parseFloat(amount) * 0.002).toFixed(6) : "0";
-
   const isNonEvmRoute = fromChain.type === "non-evm" || toChain.type === "non-evm";
+
+  const handleBridge = async () => {
+    if (!amount || parseFloat(amount) <= 0) return;
+
+    setBridging(true);
+
+    // Add to bridge history as pending
+    addBridgeTransaction({
+      fromChain: fromChain.name,
+      toChain: toChain.name,
+      token: selectedToken.symbol,
+      amount,
+      status: "confirming",
+      estimatedTime: isNonEvmRoute ? "15–30 Min." : "2–5 Min.",
+    });
+
+    setHistoryKey((k) => k + 1);
+
+    // Simulate bridge delay then complete
+    setTimeout(() => {
+      const history = loadBridgeHistory();
+      if (history.length > 0 && history[0].status === "confirming") {
+        history[0].status = "completed";
+        localStorage.setItem("vortexdex_bridge_history", JSON.stringify(history));
+        setHistoryKey((k) => k + 1);
+      }
+      toast.success(
+        <div className="font-mono text-sm">
+          <div className="font-bold text-primary">Bridge abgeschlossen! ✓</div>
+          <div className="text-xs mt-1 text-muted-foreground">
+            {amount} {selectedToken.symbol}: {fromChain.name} → {toChain.name}
+          </div>
+        </div>
+      );
+      setBridging(false);
+    }, 5000);
+
+    toast.info(`Bridge gestartet: ${amount} ${selectedToken.symbol} von ${fromChain.name} nach ${toChain.name}`);
+    setAmount("");
+  };
 
   return (
     <section id="bridge" className="py-20">
@@ -134,7 +196,6 @@ const BridgeSection = () => {
               selected={fromChain}
               onSelect={(c) => {
                 setFromChain(c);
-                // Reset token if not available on new route
                 if (!bridgeTokens.find((t) => t.symbol === selectedToken.symbol && t.chains.includes(c.id) && t.chains.includes(toChain.id))) {
                   const fallback = bridgeTokens.find((t) => t.chains.includes(c.id) && t.chains.includes(toChain.id));
                   if (fallback) setSelectedToken(fallback);
@@ -192,8 +253,7 @@ const BridgeSection = () => {
                 placeholder="0.0"
               />
 
-              {/* Token selector */}
-              <div className="relative">
+              <div className="relative" ref={tokenRef}>
                 <button
                   onClick={() => setTokenOpen(!tokenOpen)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg bg-card border border-border hover:border-primary/30 transition-all shrink-0"
@@ -280,10 +340,11 @@ const BridgeSection = () => {
 
           {/* Bridge button */}
           <button
-            disabled={!amount || parseFloat(amount) <= 0}
+            disabled={!amount || parseFloat(amount) <= 0 || bridging || !isConnected}
+            onClick={handleBridge}
             className="w-full mt-4 py-4 rounded-xl bg-primary text-primary-foreground font-mono font-bold text-lg hover:shadow-[0_0_40px_hsl(160_100%_50%/0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Bridge starten
+            {!isConnected ? "Wallet verbinden" : bridging ? "Bridge läuft..." : "Bridge starten"}
           </button>
 
           {/* Info links */}
@@ -296,6 +357,9 @@ const BridgeSection = () => {
               Pi Network <ExternalLink className="w-3 h-3" />
             </a>
           </div>
+
+          {/* Bridge History */}
+          <BridgeHistory key={historyKey} />
         </div>
       </div>
     </section>

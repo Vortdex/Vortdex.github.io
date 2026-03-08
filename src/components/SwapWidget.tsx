@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAccount, useBalance, useReadContract, useSendTransaction, useSignTypedData } from "wagmi";
+import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
+import { toast } from "sonner";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
+const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 
 interface Token {
   symbol: string;
@@ -25,14 +29,75 @@ const tokens: Token[] = [
   { symbol: "LDO", name: "Lido DAO", address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", decimals: 18, color: "hsl(195, 80%, 55%)" },
 ];
 
+// Hook to get token balance
+const useTokenBalance = (token: Token, address?: Address) => {
+  const isNative = token.address === NATIVE_ETH;
+
+  const { data: nativeBalance } = useBalance({
+    address,
+    query: { enabled: !!address && isNative },
+  });
+
+  const { data: erc20Balance } = useReadContract({
+    address: token.address as Address,
+    abi: erc20Abi,
+    functionName: "balanceOf",
+    args: address ? [address] : undefined,
+    query: { enabled: !!address && !isNative },
+  });
+
+  if (!address) return null;
+  if (isNative && nativeBalance) {
+    return formatUnits(nativeBalance.value, token.decimals);
+  }
+  if (!isNative && erc20Balance !== undefined) {
+    return formatUnits(erc20Balance as bigint, token.decimals);
+  }
+  return null;
+};
+
+// Hook to check Permit2 allowance for ERC-20
+const usePermit2Allowance = (token: Token, owner?: Address) => {
+  const isNative = token.address === NATIVE_ETH;
+
+  const { data: allowance, refetch } = useReadContract({
+    address: token.address as Address,
+    abi: erc20Abi,
+    functionName: "allowance",
+    args: owner ? [owner, PERMIT2_ADDRESS] : undefined,
+    query: { enabled: !!owner && !isNative },
+  });
+
+  return {
+    allowance: allowance as bigint | undefined,
+    needsApproval: (amount: bigint) => {
+      if (isNative) return false;
+      if (!allowance) return true;
+      return (allowance as bigint) < amount;
+    },
+    refetch,
+  };
+};
+
+const formatBalance = (balance: string | null): string => {
+  if (!balance) return "—";
+  const num = parseFloat(balance);
+  if (num === 0) return "0";
+  if (num < 0.0001) return "<0.0001";
+  if (num < 1) return num.toFixed(4);
+  if (num < 1000) return num.toFixed(2);
+  return num.toLocaleString("en-US", { maximumFractionDigits: 2 });
+};
+
 interface TokenSelectorProps {
   selectedToken: Token;
   otherToken: Token;
   onSelect: (token: Token) => void;
   side: "from" | "to";
+  walletAddress?: Address;
 }
 
-const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelectorProps) => {
+const TokenSelector = ({ selectedToken, otherToken, onSelect, side, walletAddress }: TokenSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -77,8 +142,7 @@ const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelec
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-          {/* Search */}
+        <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-3 border-b border-border">
             <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
               <Search className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -98,7 +162,6 @@ const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelec
             </div>
           </div>
 
-          {/* Popular quick-picks */}
           <div className="px-3 pt-3 pb-1 flex flex-wrap gap-1.5">
             {tokens.slice(0, 4).filter((t) => t.address !== otherToken.address).map((t) => (
               <button
@@ -115,7 +178,6 @@ const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelec
             ))}
           </div>
 
-          {/* Token list */}
           <div className="max-h-52 overflow-y-auto p-1.5">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-sm text-muted-foreground font-mono">
@@ -123,29 +185,13 @@ const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelec
               </div>
             ) : (
               filtered.map((token) => (
-                <button
+                <TokenRow
                   key={token.address}
+                  token={token}
+                  isSelected={token.address === selectedToken.address}
+                  walletAddress={walletAddress}
                   onClick={() => { onSelect(token); setOpen(false); setSearch(""); }}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
-                    token.address === selectedToken.address
-                      ? "bg-primary/10 border border-primary/20"
-                      : "hover:bg-muted/50 border border-transparent"
-                  }`}
-                >
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-mono font-bold shrink-0"
-                    style={{ backgroundColor: `${token.color}22`, color: token.color }}
-                  >
-                    {token.symbol[0]}
-                  </div>
-                  <div className="text-left min-w-0">
-                    <div className="font-mono font-semibold text-sm text-foreground">{token.symbol}</div>
-                    <div className="text-xs text-muted-foreground truncate">{token.name}</div>
-                  </div>
-                  {token.address === selectedToken.address && (
-                    <div className="ml-auto w-2 h-2 rounded-full bg-primary shrink-0" />
-                  )}
-                </button>
+                />
               ))
             )}
           </div>
@@ -155,20 +201,81 @@ const TokenSelector = ({ selectedToken, otherToken, onSelect, side }: TokenSelec
   );
 };
 
+const TokenRow = ({ token, isSelected, walletAddress, onClick }: {
+  token: Token;
+  isSelected: boolean;
+  walletAddress?: Address;
+  onClick: () => void;
+}) => {
+  const balance = useTokenBalance(token, walletAddress);
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+        isSelected
+          ? "bg-primary/10 border border-primary/20"
+          : "hover:bg-muted/50 border border-transparent"
+      }`}
+    >
+      <div
+        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-mono font-bold shrink-0"
+        style={{ backgroundColor: `${token.color}22`, color: token.color }}
+      >
+        {token.symbol[0]}
+      </div>
+      <div className="text-left min-w-0 flex-1">
+        <div className="font-mono font-semibold text-sm text-foreground">{token.symbol}</div>
+        <div className="text-xs text-muted-foreground truncate">{token.name}</div>
+      </div>
+      <div className="text-right shrink-0">
+        <div className="font-mono text-xs text-muted-foreground">
+          {walletAddress ? formatBalance(balance) : ""}
+        </div>
+      </div>
+      {isSelected && (
+        <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+      )}
+    </button>
+  );
+};
+
 const SwapWidget = () => {
+  const { address, isConnected } = useAccount();
   const [fromToken, setFromToken] = useState(tokens[0]);
   const [toToken, setToToken] = useState(tokens[1]);
   const [fromAmount, setFromAmount] = useState("1.0");
   const [toAmount, setToAmount] = useState("");
   const [rate, setRate] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [swapping, setSwapping] = useState(false);
+  const [approving, setApproving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [quoteData, setQuoteData] = useState<any>(null);
+
+  const fromBalance = useTokenBalance(fromToken, address as Address | undefined);
+  const toBalance = useTokenBalance(toToken, address as Address | undefined);
+  const { needsApproval, refetch: refetchAllowance } = usePermit2Allowance(fromToken, address as Address | undefined);
+  const { sendTransactionAsync } = useSendTransaction();
+
+  const parsedSellAmount = useCallback(() => {
+    const parsed = parseFloat(fromAmount || "0");
+    if (parsed <= 0) return BigInt(0);
+    try {
+      return parseUnits(fromAmount, fromToken.decimals);
+    } catch {
+      return BigInt(0);
+    }
+  }, [fromAmount, fromToken.decimals]);
+
+  const requiresApproval = fromToken.address !== NATIVE_ETH && needsApproval(parsedSellAmount());
 
   const fetchPrice = useCallback(async () => {
     const parsedAmount = parseFloat(fromAmount || "0");
     if (parsedAmount <= 0 || fromToken.address === toToken.address) {
       setToAmount("");
       setRate(null);
+      setQuoteData(null);
       return;
     }
 
@@ -176,7 +283,7 @@ const SwapWidget = () => {
     setError(null);
 
     try {
-      const sellAmount = BigInt(Math.floor(parsedAmount * 10 ** fromToken.decimals)).toString();
+      const sellAmount = parsedSellAmount().toString();
 
       const { data, error: fnError } = await supabase.functions.invoke("swap-price", {
         body: {
@@ -184,6 +291,7 @@ const SwapWidget = () => {
           buyToken: toToken.address,
           sellAmount,
           chainId: 1,
+          ...(address && { taker: address }),
         },
       });
 
@@ -193,28 +301,124 @@ const SwapWidget = () => {
       if (data?.buyAmount) {
         const buyAmountNum = Number(data.buyAmount) / 10 ** toToken.decimals;
         setToAmount(buyAmountNum.toLocaleString("en-US", { maximumFractionDigits: 6 }));
-
         const rateValue = buyAmountNum / parsedAmount;
         setRate(rateValue.toLocaleString("en-US", { maximumFractionDigits: 6 }));
+        setQuoteData(data);
       }
     } catch (err: any) {
       setError(err.message || "Failed to fetch price");
       setToAmount("");
       setRate(null);
+      setQuoteData(null);
     } finally {
       setLoading(false);
     }
-  }, [fromAmount, fromToken, toToken]);
+  }, [fromAmount, fromToken, toToken, address, parsedSellAmount]);
 
   useEffect(() => {
     const timer = setTimeout(fetchPrice, 500);
     return () => clearTimeout(timer);
   }, [fetchPrice]);
 
+  const handleApprove = async () => {
+    if (!address) return;
+    setApproving(true);
+    try {
+      const maxApproval = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+      await sendTransactionAsync({
+        to: fromToken.address as Address,
+        data: `0x095ea7b3${PERMIT2_ADDRESS.slice(2).padStart(64, "0")}${maxApproval.toString(16).padStart(64, "0")}` as `0x${string}`,
+      });
+      toast.success("Permit2 Approval bestätigt!");
+      await refetchAllowance();
+    } catch (err: any) {
+      toast.error(err.shortMessage || err.message || "Approval fehlgeschlagen");
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleSwap = async () => {
+    if (!address || !quoteData) return;
+    setSwapping(true);
+    setError(null);
+
+    try {
+      // Fetch full quote with taker for execution
+      const sellAmount = parsedSellAmount().toString();
+      const { data, error: fnError } = await supabase.functions.invoke("swap-quote", {
+        body: {
+          sellToken: fromToken.address,
+          buyToken: toToken.address,
+          sellAmount,
+          chainId: 1,
+          taker: address,
+        },
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (data?.error) throw new Error(data.error);
+
+      if (!data?.transaction) {
+        throw new Error("Kein Transaction-Objekt vom Aggregator erhalten");
+      }
+
+      // Execute the swap transaction
+      const txHash = await sendTransactionAsync({
+        to: data.transaction.to as Address,
+        data: data.transaction.data as `0x${string}`,
+        value: data.transaction.value ? BigInt(data.transaction.value) : BigInt(0),
+        gas: data.transaction.gas ? BigInt(data.transaction.gas) : undefined,
+        gasPrice: data.transaction.gasPrice ? BigInt(data.transaction.gasPrice) : undefined,
+      });
+
+      toast.success(
+        <div className="font-mono text-sm">
+          <div className="font-bold text-primary">Swap erfolgreich! ✓</div>
+          <div className="text-xs mt-1 text-muted-foreground">
+            {fromAmount} {fromToken.symbol} → {toAmount} {toToken.symbol}
+          </div>
+        </div>
+      );
+
+      // Reset
+      setFromAmount("");
+      setToAmount("");
+      setQuoteData(null);
+    } catch (err: any) {
+      const msg = err.shortMessage || err.message || "Swap fehlgeschlagen";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSwapping(false);
+    }
+  };
+
   const handleSwapTokens = () => {
     setFromToken(toToken);
     setToToken(fromToken);
   };
+
+  const insufficientBalance = fromBalance !== null && parseFloat(fromAmount || "0") > parseFloat(fromBalance);
+
+  const getButtonState = () => {
+    if (!isConnected) return { label: "Wallet verbinden", disabled: true, action: () => {} };
+    if (loading) return { label: "Preis laden...", disabled: true, action: () => {} };
+    if (!toAmount) return { label: "Betrag eingeben", disabled: true, action: () => {} };
+    if (insufficientBalance) return { label: `Nicht genug ${fromToken.symbol}`, disabled: true, action: () => {} };
+    if (requiresApproval) return {
+      label: approving ? "Approval wird gesendet..." : `Permit2 Approval für ${fromToken.symbol}`,
+      disabled: approving,
+      action: handleApprove,
+    };
+    return {
+      label: swapping ? "Swap wird ausgeführt..." : "Swap ausführen",
+      disabled: swapping,
+      action: handleSwap,
+    };
+  };
+
+  const buttonState = getButtonState();
 
   return (
     <section id="swap" className="py-20">
@@ -229,14 +433,26 @@ const SwapWidget = () => {
           <div className="bg-muted/50 rounded-xl p-4 mb-2">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Von</span>
-              <span className="font-mono">{fromToken.symbol}</span>
+              <span className="font-mono flex items-center gap-1.5">
+                Balance: {formatBalance(fromBalance)}
+                {fromBalance && parseFloat(fromBalance) > 0 && (
+                  <button
+                    onClick={() => setFromAmount(fromBalance)}
+                    className="text-primary hover:underline text-xs"
+                  >
+                    MAX
+                  </button>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-3">
               <input
                 type="text"
                 value={fromAmount}
                 onChange={(e) => setFromAmount(e.target.value)}
-                className="bg-transparent text-3xl font-mono font-bold text-foreground outline-none w-full"
+                className={`bg-transparent text-3xl font-mono font-bold outline-none w-full ${
+                  insufficientBalance ? "text-destructive" : "text-foreground"
+                }`}
                 placeholder="0.0"
               />
               <TokenSelector
@@ -244,11 +460,12 @@ const SwapWidget = () => {
                 otherToken={toToken}
                 onSelect={setFromToken}
                 side="from"
+                walletAddress={address as Address | undefined}
               />
             </div>
           </div>
 
-          {/* Swap button */}
+          {/* Swap direction button */}
           <div className="flex justify-center -my-3 relative z-10">
             <button
               onClick={handleSwapTokens}
@@ -262,7 +479,7 @@ const SwapWidget = () => {
           <div className="bg-muted/50 rounded-xl p-4 mt-2">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
               <span>Zu</span>
-              <span className="font-mono">{toToken.symbol}</span>
+              <span className="font-mono">Balance: {formatBalance(toBalance)}</span>
             </div>
             <div className="flex items-center gap-3">
               <div className="flex items-center w-full">
@@ -283,14 +500,16 @@ const SwapWidget = () => {
                 otherToken={fromToken}
                 onSelect={setToToken}
                 side="to"
+                walletAddress={address as Address | undefined}
               />
             </div>
           </div>
 
           {/* Error */}
           {error && (
-            <div className="mt-3 p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-mono">
-              {error}
+            <div className="mt-3 p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-mono flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>{error}</span>
             </div>
           )}
 
@@ -315,14 +534,22 @@ const SwapWidget = () => {
                 <span className="font-mono text-foreground">1 {fromToken.symbol} = {rate} {toToken.symbol}</span>
               </div>
             )}
+            {requiresApproval && (
+              <div className="flex items-center gap-2 text-sm mt-2 text-accent">
+                <AlertCircle className="w-3 h-3" />
+                <span className="font-mono text-xs">Permit2 Approval benötigt</span>
+              </div>
+            )}
           </div>
 
-          {/* Swap button */}
+          {/* Action button */}
           <button
-            disabled={loading || !toAmount}
-            className="w-full mt-4 py-4 rounded-xl bg-primary text-primary-foreground font-mono font-bold text-lg hover:shadow-[0_0_40px_hsl(160_100%_50%/0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={buttonState.disabled}
+            onClick={buttonState.action}
+            className="w-full mt-4 py-4 rounded-xl bg-primary text-primary-foreground font-mono font-bold text-lg hover:shadow-[0_0_40px_hsl(160_100%_50%/0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            Swap ausführen
+            {(swapping || approving) && <Loader2 className="w-5 h-5 animate-spin" />}
+            {buttonState.label}
           </button>
         </div>
       </div>
