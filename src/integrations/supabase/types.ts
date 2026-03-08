@@ -14,7 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      edge_function_logs: {
+        Row: {
+          created_at: string
+          details: Json | null
+          event_type: string
+          function_name: string
+          id: string
+          ip_address: string | null
+          status_code: number | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json | null
+          event_type: string
+          function_name: string
+          id?: string
+          ip_address?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json | null
+          event_type?: string
+          function_name?: string
+          id?: string
+          ip_address?: string | null
+          status_code?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
