@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     const response = await fetch(url, {
       headers: {
         '0x-api-key': apiKey,
-        '0x-version': '2',
+        '0x-version': 'v2',
       },
     });
 
