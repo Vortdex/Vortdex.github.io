@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Shield, Clock, TrendingUp, TrendingDown } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const LimitOrderPanel = () => {
+  const { t } = useI18n();
   const [side, setSide] = useState<"buy" | "sell">("buy");
   const [price, setPrice] = useState("3200.00");
   const [amount, setAmount] = useState("1.0");
@@ -12,12 +14,11 @@ const LimitOrderPanel = () => {
     <section id="limit" className="py-16">
       <div className="container mx-auto px-4 max-w-lg">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-display font-bold mb-1">Limit <span className="gradient-text">Orders</span></h2>
-          <p className="text-muted-foreground font-mono text-xs">via Loopring ZK-Rollup Orderbook</p>
+          <h2 className="text-2xl font-display font-bold mb-1">{t("limit_title")} <span className="gradient-text">Orders</span></h2>
+          <p className="text-muted-foreground font-mono text-xs">{t("limit_subtitle")}</p>
         </div>
 
         <div className="glass-card rounded-xl p-5">
-          {/* Buy/Sell toggle */}
           <div className="flex rounded-lg bg-muted/50 p-0.5 mb-5">
             <button
               onClick={() => setSide("buy")}
@@ -41,9 +42,8 @@ const LimitOrderPanel = () => {
             </button>
           </div>
 
-          {/* Price input */}
           <div className="mb-3">
-            <label className="text-[10px] text-muted-foreground mb-1.5 block font-mono uppercase tracking-wider">Limit-Preis</label>
+            <label className="text-[10px] text-muted-foreground mb-1.5 block font-mono uppercase tracking-wider">{t("limit_price")}</label>
             <div className="bg-muted/40 rounded-lg p-3 flex items-center gap-3 border border-border/50 focus-within:border-primary/30 transition-colors">
               <input
                 type="text"
@@ -55,9 +55,8 @@ const LimitOrderPanel = () => {
             </div>
           </div>
 
-          {/* Amount input */}
           <div className="mb-3">
-            <label className="text-[10px] text-muted-foreground mb-1.5 block font-mono uppercase tracking-wider">Menge</label>
+            <label className="text-[10px] text-muted-foreground mb-1.5 block font-mono uppercase tracking-wider">{t("limit_amount")}</label>
             <div className="bg-muted/40 rounded-lg p-3 flex items-center gap-3 border border-border/50 focus-within:border-primary/30 transition-colors">
               <input
                 type="text"
@@ -76,22 +75,20 @@ const LimitOrderPanel = () => {
             </div>
           </div>
 
-          {/* Total */}
           <div className="p-3 rounded-lg bg-muted/20 border border-border/50 mb-3 space-y-1.5">
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Total</span>
+              <span className="text-muted-foreground">{t("limit_total")}</span>
               <span className="font-mono font-bold text-foreground">{parseFloat(total).toLocaleString()} USDC</span>
             </div>
             <div className="flex justify-between text-xs">
-              <span className="text-muted-foreground">Fee (0.1%)</span>
+              <span className="text-muted-foreground">{t("limit_fee")}</span>
               <span className="font-mono text-[10px] text-muted-foreground">{(parseFloat(total) * 0.001).toFixed(2)} USDC</span>
             </div>
           </div>
 
-          {/* Security badge */}
           <div className="flex items-center gap-1.5 mb-3 text-[10px] text-muted-foreground">
             <Shield className="w-3 h-3 text-primary" />
-            <span>Loopring ZK-Rollup — Ethereum L1 Sicherheit</span>
+            <span>{t("limit_security")}</span>
           </div>
 
           <button className={`w-full py-3 rounded-lg font-mono font-bold text-sm transition-all ${
