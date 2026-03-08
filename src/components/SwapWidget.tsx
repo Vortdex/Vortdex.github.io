@@ -810,7 +810,7 @@ const SwapWidget = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded text-xs font-mono bg-primary/10 text-primary border border-primary/20">
-                  0x Aggregator
+                  {routeLabel}
                 </span>
               </div>
             </div>
