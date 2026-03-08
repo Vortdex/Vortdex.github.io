@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.swap-alephium]
 verify_jwt = false
+
+[functions.token-ohlc]
+verify_jwt = false
