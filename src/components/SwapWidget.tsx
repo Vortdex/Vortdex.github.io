@@ -562,7 +562,49 @@ const SwapWidget = () => {
           {/* Header with settings */}
           <div className="flex items-center justify-between mb-4">
             <span className="font-mono font-semibold text-foreground text-sm">Swap</span>
-            <div className="relative" ref={settingsRef}>
+            <div className="flex items-center gap-2">
+              {/* Chain Selector */}
+              <div className="relative" ref={chainSelectorRef}>
+                <button
+                  onClick={() => setChainSelectorOpen(!chainSelectorOpen)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
+                    chainSelectorOpen ? "bg-primary/15 border-primary/30 text-primary" : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: supportedChains.find(c => c.id === selectedChainId)?.color || 'hsl(220, 60%, 55%)' }}
+                  >
+                    <Globe className="w-2.5 h-2.5 text-primary-foreground" />
+                  </div>
+                  {supportedChains.find(c => c.id === selectedChainId)?.name || 'Ethereum'}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${chainSelectorOpen ? "rotate-180" : ""}`} />
+                </button>
+                {chainSelectorOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {supportedChains.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleChainSwitch(c.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-mono transition-all ${
+                          c.id === selectedChainId
+                            ? "bg-primary/10 text-primary border border-primary/20"
+                            : "hover:bg-muted/50 text-muted-foreground hover:text-foreground border border-transparent"
+                        }`}
+                      >
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: c.color }}
+                        >
+                          <Globe className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                        <span>{c.name}</span>
+                        {c.id === selectedChainId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => setShowSettings(!showSettings)}
                 className={`p-2 rounded-lg transition-all ${showSettings ? "bg-primary/15 text-primary" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
