@@ -6,21 +6,11 @@
  * Applies a 0.1% protocol fee (10 bps) on all swaps.
  */
 
-// ─── CORS (restricted to production + preview origins) ───────
-const ALLOWED_ORIGINS = [
-  'https://vortexdex.lovable.app',
-  'https://id-preview--ea5bca81-d8f9-4107-944e-23e0e350fc10.lovable.app',
-];
-
-function getCorsHeaders(req: Request) {
-  const origin = req.headers.get('origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allowed,
-    'Access-Control-Allow-Headers':
-      'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-  };
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+};
 
 // ─── In-memory IP rate limiter ───────────────────────────────
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -90,10 +80,10 @@ const POOLS: Pool[] = [
 // ─── Helpers ─────────────────────────────────────────────────
 const SELL_AMOUNT_RE = /^[0-9]{1,78}$/;
 
-function json(data: unknown, corsHeaders: Record<string, string>, status = 200) {
+function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
-function err(message: string, corsHeaders: Record<string, string>, status = 400) { return json({ error: message }, corsHeaders, status); }
+function err(message: string, status = 400) { return json({ error: message }, status); }
 
 function applyFee(raw: bigint) {
   const fee = (raw * BigInt(FEE_BPS)) / 10000n;
@@ -128,10 +118,8 @@ function findPool(a: string, b: string): Pool | undefined {
 
 // ─── Handler ─────────────────────────────────────────────────
 Deno.serve(async (req) => {
-  const corsHeaders = getCorsHeaders(req);
-
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
-  if (req.method !== 'POST') return err('Method not allowed', corsHeaders, 405);
+  if (req.method !== 'POST') return err('Method not allowed', 405);
 
   // Rate limit by IP
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
@@ -145,23 +133,23 @@ Deno.serve(async (req) => {
 
   try {
     let body: Record<string, unknown>;
-    try { body = await req.json(); } catch { return err('Invalid JSON body', corsHeaders); }
+    try { body = await req.json(); } catch { return err('Invalid JSON body'); }
 
     const { sellToken, buyToken, sellAmount, taker, mode } = body;
     if (typeof sellToken !== 'string' || typeof buyToken !== 'string' || typeof sellAmount !== 'string')
-      return err('sellToken, buyToken (string) and sellAmount (string) are required', corsHeaders);
+      return err('sellToken, buyToken (string) and sellAmount (string) are required');
     if (!SELL_AMOUNT_RE.test(sellAmount) || sellAmount === '0')
-      return err('sellAmount must be a positive integer string', corsHeaders);
+      return err('sellAmount must be a positive integer string');
 
     const sell = resolveToken(sellToken);
     const buy  = resolveToken(buyToken);
-    if (!sell) return err(`Unknown sellToken: ${sellToken}`, corsHeaders);
-    if (!buy)  return err(`Unknown buyToken: ${buyToken}`, corsHeaders);
-    if (sell.id === buy.id) return err('sellToken and buyToken must be different', corsHeaders);
+    if (!sell) return err(`Unknown sellToken: ${sellToken}`);
+    if (!buy)  return err(`Unknown buyToken: ${buyToken}`);
+    if (sell.id === buy.id) return err('sellToken and buyToken must be different');
 
     const isQuote = mode === 'quote';
     if (isQuote && (!taker || typeof taker !== 'string'))
-      return err('A valid taker address is required for quotes', corsHeaders);
+      return err('A valid taker address is required for quotes');
 
     const amIn = BigInt(sellAmount);
 
@@ -169,7 +157,6 @@ Deno.serve(async (req) => {
       let rawOut = 0n;
       let route: Record<string, unknown> = {};
 
-      // 1) Try direct pool
       const direct = findPool(sell.id, buy.id);
       if (direct) {
         const bal = await balances(direct.address);
@@ -181,7 +168,6 @@ Deno.serve(async (req) => {
         }
       }
 
-      // 2) Multi-hop through ALPH
       if (rawOut <= 0n && sell.id !== ALPH_ID && buy.id !== ALPH_ID) {
         const pool1 = findPool(sell.id, ALPH_ID);
         const pool2 = findPool(ALPH_ID, buy.id);
@@ -199,7 +185,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (rawOut <= 0n) return err('No liquidity available for this pair on Ayin DEX', corsHeaders, 422);
+      if (rawOut <= 0n) return err('No liquidity available for this pair on Ayin DEX', 422);
 
       const { buyAmount, feeAmount } = applyFee(rawOut);
       const minBuy = (buyAmount * 97n) / 100n;
@@ -221,13 +207,13 @@ Deno.serve(async (req) => {
         };
       }
 
-      return json(resp, corsHeaders);
+      return json(resp);
     } catch (e) {
       console.error('Reserve fetch error:', e);
-      return err('Failed to query on-chain pool reserves', corsHeaders, 502);
+      return err('Failed to query on-chain pool reserves', 502);
     }
   } catch (e) {
     console.error('Internal error:', e);
-    return err('Internal server error', corsHeaders, 500);
+    return err('Internal server error', 500);
   }
 });
