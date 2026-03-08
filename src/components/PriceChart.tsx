@@ -125,7 +125,7 @@ const PriceChart = ({ symbol, className = "" }: PriceChartProps) => {
           ) : (
             <TrendingDown className="w-4 h-4 text-red-400" />
           )}
-          <span className={`font-mono text-sm font-bold ${stats.isUp ? "text-emerald-400" : "text-red-400"}`}>
+          <span className={`font-mono text-xs font-bold ${stats.isUp ? "text-primary" : "text-destructive"}`}>
             {stats.change >= 0 ? "+" : ""}{stats.change.toFixed(2)}%
           </span>
         </div>
