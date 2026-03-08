@@ -115,7 +115,53 @@ const useTokenBalance = (token: Token, address?: Address) => {
   return null;
 };
 
-// Hook to check Permit2 allowance for ERC-20
+// Hook to fetch Alephium token balance from mainnet node
+const useAlephiumBalance = (tokenSymbol: string, alphAddress?: string) => {
+  const [balance, setBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!alphAddress) { setBalance(null); return; }
+    let cancelled = false;
+
+    const fetchBalance = async () => {
+      try {
+        const resp = await fetch(`${ALPH_NODE_URL}/addresses/${alphAddress}/balance`);
+        if (!resp.ok) { await resp.text(); return; }
+        const data = await resp.json();
+
+        const hexId = ALPH_TOKEN_IDS[tokenSymbol.toUpperCase()];
+        if (!hexId) return;
+
+        if (hexId === ALPH_TOKEN_IDS.ALPH) {
+          // Native ALPH balance
+          const raw = BigInt(data.balance || "0");
+          if (!cancelled) setBalance(formatUnits(raw, 18));
+        } else {
+          // Token balance
+          const tb = (data.tokenBalances || []).find((t: { id: string }) => t.id === hexId);
+          if (tb) {
+            // Look up decimals from token list
+            const decimals = tokenSymbol === "USDT" || tokenSymbol === "USDC" ? 6 : tokenSymbol === "WBTC" ? 8 : 18;
+            const raw = BigInt(tb.amount || "0");
+            if (!cancelled) setBalance(formatUnits(raw, decimals));
+          } else {
+            if (!cancelled) setBalance("0");
+          }
+        }
+      } catch {
+        if (!cancelled) setBalance(null);
+      }
+    };
+
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 15000); // refresh every 15s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [alphAddress, tokenSymbol]);
+
+  return balance;
+};
+
+
 const usePermit2Allowance = (token: Token, owner?: Address) => {
   const isNative = token.address === NATIVE_ETH;
 
