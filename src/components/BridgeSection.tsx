@@ -248,7 +248,7 @@ const BridgeSection = () => {
               <input
                 type="text"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => { if (/^\d*\.?\d*$/.test(e.target.value)) setAmount(e.target.value); }}
                 className="bg-transparent text-3xl font-mono font-bold text-foreground outline-none w-full"
                 placeholder="0.0"
               />
