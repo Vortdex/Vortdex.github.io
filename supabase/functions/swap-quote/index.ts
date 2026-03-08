@@ -6,17 +6,79 @@ const corsHeaders = {
 const FEE_RECIPIENT = '0x401e2584ed1f4b0cc5d265fbbe0c917631dc2b2c';
 const FEE_BPS = '10'; // 0.1% = 10 basis points
 
+const VALID_CHAIN_IDS = [1, 42161, 137, 10, 8453];
+const ETH_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+const NATIVE_ETH = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+const SELL_AMOUNT_RE = /^[0-9]{1,78}$/;
+
+function isValidAddress(addr: string): boolean {
+  return ETH_ADDRESS_RE.test(addr) || addr.toLowerCase() === NATIVE_ETH.toLowerCase();
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const { sellToken, buyToken, sellAmount, chainId, taker } = await req.json();
+  if (req.method !== 'POST') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
 
-    if (!sellToken || !buyToken || !sellAmount) {
+  try {
+    let body: Record<string, unknown>;
+    try {
+      body = await req.json();
+    } catch {
       return new Response(
-        JSON.stringify({ error: 'Missing required parameters: sellToken, buyToken, sellAmount' }),
+        JSON.stringify({ error: 'Invalid JSON body' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const { sellToken, buyToken, sellAmount, chainId, taker } = body;
+
+    if (typeof sellToken !== 'string' || typeof buyToken !== 'string' || typeof sellAmount !== 'string') {
+      return new Response(
+        JSON.stringify({ error: 'sellToken, buyToken (string) and sellAmount (string) are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!isValidAddress(sellToken)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid sellToken address' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    if (!isValidAddress(buyToken)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid buyToken address' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!SELL_AMOUNT_RE.test(sellAmount) || sellAmount === '0') {
+      return new Response(
+        JSON.stringify({ error: 'sellAmount must be a positive integer string (in wei)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const chain = typeof chainId === 'number' ? chainId : 1;
+    if (!VALID_CHAIN_IDS.includes(chain)) {
+      return new Response(
+        JSON.stringify({ error: `Unsupported chainId. Supported: ${VALID_CHAIN_IDS.join(', ')}` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // taker is REQUIRED for quote (needed for executable transaction)
+    if (!taker || typeof taker !== 'string' || !ETH_ADDRESS_RE.test(taker)) {
+      return new Response(
+        JSON.stringify({ error: 'A valid taker address is required for quotes' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -29,17 +91,15 @@ Deno.serve(async (req) => {
       );
     }
 
-    const chain = chainId || 1;
-
     const params = new URLSearchParams({
       chainId: String(chain),
       sellToken,
       buyToken,
       sellAmount,
+      taker,
       swapFeeRecipient: FEE_RECIPIENT,
       swapFeeBps: FEE_BPS,
       swapFeeToken: buyToken,
-      ...(taker && { taker }),
     });
 
     const url = `https://api.0x.org/swap/permit2/quote?${params}`;
@@ -58,8 +118,8 @@ Deno.serve(async (req) => {
       data = JSON.parse(text);
     } catch {
       return new Response(
-        JSON.stringify({ error: `0x API error: ${text.substring(0, 200)}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: '0x API returned invalid response' }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -69,7 +129,7 @@ Deno.serve(async (req) => {
     });
   } catch (error) {
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
