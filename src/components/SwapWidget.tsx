@@ -655,6 +655,7 @@ const SwapWidget = () => {
                 onSelect={setFromToken}
                 side="from"
                 walletAddress={address as Address | undefined}
+                tokens={tokens}
               />
             </div>
           </div>
