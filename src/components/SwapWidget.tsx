@@ -142,7 +142,7 @@ interface TokenSelectorProps {
   tokens: Token[];
 }
 
-const TokenSelector = ({ selectedToken, otherToken, onSelect, side, walletAddress }: TokenSelectorProps) => {
+const TokenSelector = ({ selectedToken, otherToken, onSelect, side, walletAddress, tokens }: TokenSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
