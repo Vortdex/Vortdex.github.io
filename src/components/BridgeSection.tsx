@@ -189,7 +189,7 @@ const BridgeSection = () => {
           </p>
         </div>
 
-        <div className="glass-card rounded-2xl p-6 pulse-glow">
+        <div className="glass-card rounded-xl p-5 pulse-glow">
           {/* Chain selectors */}
           <div className="flex items-end gap-3 mb-4">
             <ChainSelector
