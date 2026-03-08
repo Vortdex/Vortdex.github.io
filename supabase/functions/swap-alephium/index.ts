@@ -10,6 +10,7 @@
 const ALLOWED_ORIGINS = [
   'https://vortexdex.lovable.app',
   'https://id-preview--ea5bca81-d8f9-4107-944e-23e0e350fc10.lovable.app',
+  'https://ea5bca81-d8f9-4107-944e-23e0e350fc10.lovableproject.com',
 ];
 
 function getCorsHeaders(req: Request) {
