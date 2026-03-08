@@ -109,6 +109,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'OP', name: 'Optimism', address: '0x4200000000000000000000000000000000000042', decimals: 18, color: 'hsl(0, 80%, 55%)' },
     { symbol: 'WETH', name: 'Wrapped Ether', address: '0x4200000000000000000000000000000000000006', decimals: 18, color: 'hsl(220, 60%, 55%)' },
     { symbol: 'USDT', name: 'Tether', address: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', decimals: 6, color: 'hsl(160, 80%, 45%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0xdC6fF44d5d932Cbd77B52E5612Ba0529DC6226F1', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   8453: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(220, 80%, 55%)' },
