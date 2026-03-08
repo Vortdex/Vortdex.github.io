@@ -636,6 +636,45 @@ const SwapWidget = () => {
                 <span className="font-mono text-foreground">1 {fromToken.symbol} = {rate} {toToken.symbol}</span>
               </div>
             )}
+            {/* Slippage */}
+            <div className="flex items-center justify-between text-sm mt-2">
+              <span className="text-muted-foreground">Slippage Toleranz</span>
+              <span className={`font-mono text-xs ${slippage > 5 ? "text-amber-400" : "text-foreground"}`}>{slippage}%</span>
+            </div>
+            {/* Min received */}
+            {toAmount && (
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-muted-foreground">Min. erhalten</span>
+                <span className="font-mono text-xs text-foreground">
+                  {(parseFloat(toAmount.replace(/,/g, "")) * (1 - slippage / 100)).toLocaleString("en-US", { maximumFractionDigits: 6 })} {toToken.symbol}
+                </span>
+              </div>
+            )}
+            {/* Price Impact */}
+            {priceImpact !== null && (
+              <div className="flex items-center justify-between text-sm mt-2">
+                <span className="text-muted-foreground flex items-center gap-1">
+                  {priceImpactSeverity === "high" && <AlertTriangle className="w-3 h-3 text-destructive" />}
+                  {priceImpactSeverity === "medium" && <AlertTriangle className="w-3 h-3 text-amber-400" />}
+                  Preis-Impact
+                </span>
+                <span className={`font-mono text-xs ${
+                  priceImpactSeverity === "high" ? "text-destructive font-bold" :
+                  priceImpactSeverity === "medium" ? "text-amber-400" : "text-emerald-400"
+                }`}>
+                  {priceImpact < 0.01 ? "<0.01" : priceImpact.toFixed(2)}%
+                </span>
+              </div>
+            )}
+            {/* High price impact warning */}
+            {priceImpactSeverity === "high" && (
+              <div className="mt-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
+                <span className="text-xs font-mono text-destructive">
+                  Hoher Preis-Impact! Du verlierst möglicherweise einen erheblichen Betrag durch diese Transaktion.
+                </span>
+              </div>
+            )}
             <div className="flex items-center justify-between text-sm mt-2">
               <span className="text-muted-foreground">VortexDEX Fee</span>
               <span className="font-mono text-foreground text-xs">0.1%</span>
