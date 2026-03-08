@@ -174,33 +174,128 @@ export class ZeroXAdapter implements SwapAdapter {
   }
 }
 
-// ─── Alephium / Ayin DEX Adapter (Stub) ──────────────────────
+// ─── Alephium DEX Backend Interface ──────────────────────────
 
-const ALEPHIUM_TOKENS: SwapToken[] = [
+/** Pluggable backend for Alephium DEX routing (Ayin, Elexium, official SDK) */
+export interface AlephiumDexBackend {
+  readonly id: string;
+  readonly name: string;
+  getTokens(): SwapToken[];
+  getPrice(req: SwapPriceRequest): Promise<SwapPriceResponse>;
+  getQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse>;
+}
+
+// ─── Ayin DEX Backend ────────────────────────────────────────
+
+const AYIN_TOKENS: SwapToken[] = [
   { symbol: 'ALPH', name: 'Alephium', address: 'native', decimals: 18, color: 'hsl(165, 70%, 45%)' },
   { symbol: 'USDT', name: 'Tether (Alephium)', address: 'zSRgc7goAYUgYsEBYDjp4EMRHieZ5wXBnpfubFpEhDFo', decimals: 6, color: 'hsl(160, 80%, 45%)' },
   { symbol: 'WETH', name: 'Wrapped ETH (Alephium)', address: 'vT49PY8ksoUL6NcXiZ1t2wAmC7tTPRfFfER8n3UCLvXy', decimals: 18, color: 'hsl(220, 60%, 55%)' },
   { symbol: 'AYIN', name: 'Ayin', address: 'vP6XSUyjmgWCB2B9tD5Rqun56WJqDdExWnfwZVEqzhQb', decimals: 18, color: 'hsl(30, 80%, 55%)' },
 ];
 
-export class AlephiumAdapter implements SwapAdapter {
+export class AyinDexBackend implements AlephiumDexBackend {
   readonly id = 'ayin';
   readonly name = 'Ayin DEX';
+
+  getTokens(): SwapToken[] {
+    return AYIN_TOKENS;
+  }
+
+  async getPrice(_req: SwapPriceRequest): Promise<SwapPriceResponse> {
+    // TODO: Integrate with Ayin DEX contracts / API
+    throw new Error('Ayin DEX integration coming soon');
+  }
+
+  async getQuote(_req: SwapQuoteRequest): Promise<SwapQuoteResponse> {
+    throw new Error('Ayin DEX integration coming soon');
+  }
+}
+
+// ─── Elexium Backend (Stub) ──────────────────────────────────
+
+export class ElexiumDexBackend implements AlephiumDexBackend {
+  readonly id = 'elexium';
+  readonly name = 'Elexium Finance';
+
+  getTokens(): SwapToken[] {
+    // Elexium will likely support the same base tokens + LP tokens
+    return AYIN_TOKENS;
+  }
+
+  async getPrice(_req: SwapPriceRequest): Promise<SwapPriceResponse> {
+    throw new Error('Elexium Finance integration coming soon');
+  }
+
+  async getQuote(_req: SwapQuoteRequest): Promise<SwapQuoteResponse> {
+    throw new Error('Elexium Finance integration coming soon');
+  }
+}
+
+// ─── Official Alephium DEX SDK Backend (Stub) ────────────────
+
+export class AlephiumOfficialDexBackend implements AlephiumDexBackend {
+  readonly id = 'alph-sdk';
+  readonly name = 'Alephium DEX (Official)';
+
+  getTokens(): SwapToken[] {
+    return AYIN_TOKENS;
+  }
+
+  async getPrice(_req: SwapPriceRequest): Promise<SwapPriceResponse> {
+    throw new Error('Official Alephium DEX SDK integration coming soon');
+  }
+
+  async getQuote(_req: SwapQuoteRequest): Promise<SwapQuoteResponse> {
+    throw new Error('Official Alephium DEX SDK integration coming soon');
+  }
+}
+
+// ─── Alephium Adapter (routes to pluggable backend) ──────────
+
+const AVAILABLE_BACKENDS: AlephiumDexBackend[] = [
+  new AyinDexBackend(),
+  new ElexiumDexBackend(),
+  new AlephiumOfficialDexBackend(),
+];
+
+export class AlephiumAdapter implements SwapAdapter {
+  readonly id = 'alephium';
+  readonly name = 'Alephium DEX';
   readonly isEvm = false;
   readonly supportedChains = ['alephium' as string | number];
 
+  private backend: AlephiumDexBackend;
+
+  constructor(backendId?: string) {
+    this.backend = AVAILABLE_BACKENDS.find((b) => b.id === backendId) ?? AVAILABLE_BACKENDS[0];
+  }
+
+  /** Switch the active DEX backend at runtime */
+  setBackend(backendId: string): void {
+    const found = AVAILABLE_BACKENDS.find((b) => b.id === backendId);
+    if (!found) throw new Error(`Unknown Alephium backend: ${backendId}`);
+    this.backend = found;
+  }
+
+  getActiveBackend(): AlephiumDexBackend {
+    return this.backend;
+  }
+
+  getAvailableBackends(): { id: string; name: string }[] {
+    return AVAILABLE_BACKENDS.map((b) => ({ id: b.id, name: b.name }));
+  }
+
   getTokens(): SwapToken[] {
-    return ALEPHIUM_TOKENS;
+    return this.backend.getTokens();
   }
 
   async getPrice(req: SwapPriceRequest): Promise<SwapPriceResponse> {
-    // TODO: Integrate with Ayin DEX API / Alephium backend function
-    // For now this is a stub that returns a placeholder
-    throw new Error('Alephium swaps coming soon — Ayin DEX integration in progress');
+    return this.backend.getPrice(req);
   }
 
   async getQuote(req: SwapQuoteRequest): Promise<SwapQuoteResponse> {
-    throw new Error('Alephium swaps coming soon — Ayin DEX integration in progress');
+    return this.backend.getQuote(req);
   }
 }
 
