@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle, Globe } from "lucide-react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount, useBalance, useReadContract, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
 import { toast } from "sonner";
 import SwapHistory, { addSwapTransaction } from "./SwapHistory";
 import { supportedChains } from "@/lib/wagmi";
+import { chainIcons } from "@/lib/chainIcons";
+import { getAllChains, getAdapterForChain } from "@/lib/swapAdapter";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -571,12 +573,11 @@ const SwapWidget = () => {
                     chainSelectorOpen ? "bg-primary/15 border-primary/30 text-primary" : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <div
-                    className="w-4 h-4 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: supportedChains.find(c => c.id === selectedChainId)?.color || 'hsl(220, 60%, 55%)' }}
-                  >
-                    <Globe className="w-2.5 h-2.5 text-primary-foreground" />
-                  </div>
+                  <img
+                    src={chainIcons[selectedChainId] || chainIcons[1]}
+                    alt=""
+                    className="w-4 h-4 rounded-full object-cover"
+                  />
                   {supportedChains.find(c => c.id === selectedChainId)?.name || 'Ethereum'}
                   <ChevronDown className={`w-3 h-3 transition-transform ${chainSelectorOpen ? "rotate-180" : ""}`} />
                 </button>
@@ -592,12 +593,11 @@ const SwapWidget = () => {
                             : "hover:bg-muted/50 text-muted-foreground hover:text-foreground border border-transparent"
                         }`}
                       >
-                        <div
-                          className="w-5 h-5 rounded-full flex items-center justify-center"
-                          style={{ backgroundColor: c.color }}
-                        >
-                          <Globe className="w-3 h-3 text-primary-foreground" />
-                        </div>
+                        <img
+                          src={chainIcons[c.id]}
+                          alt={c.name}
+                          className="w-5 h-5 rounded-full object-cover"
+                        />
                         <span>{c.name}</span>
                         {c.id === selectedChainId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
                       </button>
