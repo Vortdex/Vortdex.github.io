@@ -5,6 +5,7 @@ import { useAccount, useBalance, useReadContract, useSendTransaction, useSwitchC
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
 import { toast } from "sonner";
 import SwapHistory, { addSwapTransaction } from "./SwapHistory";
+import PriceChart from "./PriceChart";
 import { supportedChains } from "@/lib/wagmi";
 import { chainIcons } from "@/lib/chainIcons";
 import { getAllChains, getAdapterForChain } from "@/lib/swapAdapter";
@@ -959,6 +960,9 @@ const SwapWidget = () => {
           </button>
 
           <SwapHistory />
+
+          {/* Price Chart */}
+          <PriceChart symbol={fromToken.symbol} className="mt-4" />
         </div>
       </div>
     </section>
