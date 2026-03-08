@@ -85,6 +85,7 @@ const EVM_TOKEN_LISTS: Record<number, SwapToken[]> = {
     { symbol: 'UNI', name: 'Uniswap', address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', decimals: 18, color: 'hsl(330, 80%, 60%)' },
     { symbol: 'AAVE', name: 'Aave', address: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', decimals: 18, color: 'hsl(270, 60%, 55%)' },
     { symbol: 'LDO', name: 'Lido DAO', address: '0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32', decimals: 18, color: 'hsl(195, 80%, 55%)' },
+    { symbol: 'WLD', name: 'Worldcoin', address: '0x163f8C2467924be0ae7B5347228CABF260318753', decimals: 18, color: 'hsl(160, 70%, 50%)' },
   ],
   42161: [
     { symbol: 'ETH', name: 'Ethereum', address: NATIVE_ETH, decimals: 18, color: 'hsl(210, 80%, 55%)' },
