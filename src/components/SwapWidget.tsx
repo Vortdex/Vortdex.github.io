@@ -625,14 +625,14 @@ const SwapWidget = () => {
                     alt=""
                     className="w-4 h-4 rounded-full object-cover"
                   />
-                  {supportedChains.find(c => c.id === selectedChainId)?.name || 'Ethereum'}
+                  {currentChainInfo?.name || 'Ethereum'}
                   <ChevronDown className={`w-3 h-3 transition-transform ${chainSelectorOpen ? "rotate-180" : ""}`} />
                 </button>
                 {chainSelectorOpen && (
                   <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                    {supportedChains.map((c) => (
+                    {allChains.map((c) => (
                       <button
-                        key={c.id}
+                        key={String(c.id)}
                         onClick={() => handleChainSwitch(c.id)}
                         className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-mono transition-all ${
                           c.id === selectedChainId
@@ -646,6 +646,7 @@ const SwapWidget = () => {
                           className="w-5 h-5 rounded-full object-cover"
                         />
                         <span>{c.name}</span>
+                        {!c.isEvm && <span className="text-[10px] text-accent ml-auto">non-EVM</span>}
                         {c.id === selectedChainId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
                       </button>
                     ))}
