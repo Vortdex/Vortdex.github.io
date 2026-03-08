@@ -443,8 +443,14 @@ const SwapWidget = () => {
 
   const priceImpactSeverity = priceImpact === null ? "none" : priceImpact < 1 ? "low" : priceImpact < 3 ? "medium" : "high";
 
-  const fromBalance = useTokenBalance(fromToken, address as Address | undefined);
-  const toBalance = useTokenBalance(toToken, address as Address | undefined);
+  const evmFromBalance = useTokenBalance(fromToken, address as Address | undefined);
+  const evmToBalance = useTokenBalance(toToken, address as Address | undefined);
+  const alphFromBalance = useAlephiumBalance(fromToken.symbol, alphWallet.address);
+  const alphToBalance = useAlephiumBalance(toToken.symbol, alphWallet.address);
+
+  const fromBalance = isAlephium ? alphFromBalance : evmFromBalance;
+  const toBalance = isAlephium ? alphToBalance : evmToBalance;
+
   const { needsApproval, refetch: refetchAllowance } = usePermit2Allowance(fromToken, address as Address | undefined);
   const { sendTransactionAsync } = useSendTransaction();
 
