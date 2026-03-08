@@ -2,7 +2,7 @@ import { createAppKit } from '@reown/appkit/react';
 import { WagmiProvider } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { mainnet, arbitrum, polygon, optimism, base } from '@reown/appkit/networks';
-import { wagmiAdapter, projectId } from '@/lib/wagmi';
+import { wagmiAdapter, projectId, worldchain } from '@/lib/wagmi';
 
 const queryClient = new QueryClient();
 
@@ -15,7 +15,7 @@ const metadata = {
 
 createAppKit({
   adapters: [wagmiAdapter],
-  networks: [mainnet, arbitrum, polygon, optimism, base],
+  networks: [mainnet, arbitrum, polygon, optimism, base, worldchain],
   projectId,
   metadata,
   themeMode: 'dark' as const,

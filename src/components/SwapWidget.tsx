@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { ArrowDownUp, ChevronDown, Zap, Info, Loader2, Search, X, AlertCircle, Settings2, AlertTriangle, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAccount, useBalance, useReadContract, useSendTransaction } from "wagmi";
+import { useAccount, useBalance, useReadContract, useSendTransaction, useSwitchChain } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
 import { toast } from "sonner";
 import SwapHistory, { addSwapTransaction } from "./SwapHistory";
+import { supportedChains } from "@/lib/wagmi";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -20,18 +21,57 @@ interface Token {
   color: string;
 }
 
-const tokens: Token[] = [
-  { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 60%, 55%)" },
-  { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, color: "hsl(210, 80%, 55%)" },
-  { symbol: "USDT", name: "Tether", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, color: "hsl(160, 80%, 45%)" },
-  { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8, color: "hsl(30, 90%, 55%)" },
-  { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, color: "hsl(40, 90%, 55%)" },
-  { symbol: "WETH", name: "Wrapped Ether", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18, color: "hsl(220, 60%, 55%)" },
-  { symbol: "LINK", name: "Chainlink", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18, color: "hsl(220, 80%, 60%)" },
-  { symbol: "UNI", name: "Uniswap", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18, color: "hsl(330, 80%, 60%)" },
-  { symbol: "AAVE", name: "Aave", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, color: "hsl(270, 60%, 55%)" },
-  { symbol: "LDO", name: "Lido DAO", address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", decimals: 18, color: "hsl(195, 80%, 55%)" },
-];
+// Chain-specific token lists
+const TOKEN_LISTS: Record<number, Token[]> = {
+  1: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, color: "hsl(160, 80%, 45%)" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599", decimals: 8, color: "hsl(30, 90%, 55%)" },
+    { symbol: "DAI", name: "Dai", address: "0x6B175474E89094C44Da98b954EedeAC495271d0F", decimals: 18, color: "hsl(40, 90%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "LINK", name: "Chainlink", address: "0x514910771AF9Ca656af840dff83E8264EcF986CA", decimals: 18, color: "hsl(220, 80%, 60%)" },
+    { symbol: "UNI", name: "Uniswap", address: "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", decimals: 18, color: "hsl(330, 80%, 60%)" },
+    { symbol: "AAVE", name: "Aave", address: "0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9", decimals: 18, color: "hsl(270, 60%, 55%)" },
+    { symbol: "LDO", name: "Lido DAO", address: "0x5A98FcBEA516Cf06857215779Fd812CA3beF1B32", decimals: 18, color: "hsl(195, 80%, 55%)" },
+  ],
+  42161: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", decimals: 6, color: "hsl(160, 80%, 45%)" },
+    { symbol: "ARB", name: "Arbitrum", address: "0x912CE59144191C1204E64559FE8253a0e49E6548", decimals: 18, color: "hsl(210, 80%, 55%)" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f", decimals: 8, color: "hsl(30, 90%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18, color: "hsl(220, 60%, 55%)" },
+  ],
+  137: [
+    { symbol: "MATIC", name: "Polygon", address: NATIVE_ETH, decimals: 18, color: "hsl(265, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", decimals: 6, color: "hsl(160, 80%, 45%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x1BFD67037B42Cf73acF2047067bd4F2C47D9BfD6", decimals: 8, color: "hsl(30, 90%, 55%)" },
+  ],
+  10: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(0, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "OP", name: "Optimism", address: "0x4200000000000000000000000000000000000042", decimals: 18, color: "hsl(0, 80%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "USDT", name: "Tether", address: "0x94b008aA00579c1307B0EF2c499aD98a8ce58e58", decimals: 6, color: "hsl(160, 80%, 45%)" },
+  ],
+  8453: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(220, 80%, 55%)" },
+    { symbol: "USDC", name: "USD Coin", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, color: "hsl(220, 60%, 55%)" },
+    { symbol: "cbBTC", name: "Coinbase BTC", address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8, color: "hsl(30, 90%, 55%)" },
+  ],
+  480: [
+    { symbol: "ETH", name: "Ethereum", address: NATIVE_ETH, decimals: 18, color: "hsl(160, 70%, 50%)" },
+    { symbol: "WLD", name: "Worldcoin", address: "0x2cFc85d8E48F8EAB294be644d9E25C3030863003", decimals: 18, color: "hsl(160, 70%, 50%)" },
+    { symbol: "USDC.e", name: "Bridged USDC", address: "0x79A02482A880bCE3B13e09Da970dC34db4CD24d1", decimals: 6, color: "hsl(210, 80%, 55%)" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18, color: "hsl(220, 60%, 55%)" },
+  ],
+};
+
+const getTokensForChain = (chainId: number): Token[] => TOKEN_LISTS[chainId] || TOKEN_LISTS[1];
 
 // Hook to get token balance
 const useTokenBalance = (token: Token, address?: Address) => {
@@ -99,9 +139,10 @@ interface TokenSelectorProps {
   onSelect: (token: Token) => void;
   side: "from" | "to";
   walletAddress?: Address;
+  tokens: Token[];
 }
 
-const TokenSelector = ({ selectedToken, otherToken, onSelect, side, walletAddress }: TokenSelectorProps) => {
+const TokenSelector = ({ selectedToken, otherToken, onSelect, side, walletAddress, tokens }: TokenSelectorProps) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -245,7 +286,13 @@ const TokenRow = ({ token, isSelected, walletAddress, onClick }: {
 };
 
 const SwapWidget = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
+  const { switchChain } = useSwitchChain();
+  const [selectedChainId, setSelectedChainId] = useState(1);
+  const [chainSelectorOpen, setChainSelectorOpen] = useState(false);
+  const chainSelectorRef = useRef<HTMLDivElement>(null);
+
+  const tokens = useMemo(() => getTokensForChain(selectedChainId), [selectedChainId]);
   const [fromToken, setFromToken] = useState(tokens[0]);
   const [toToken, setToToken] = useState(tokens[1]);
   const [fromAmount, setFromAmount] = useState("1.0");
@@ -271,6 +318,32 @@ const SwapWidget = () => {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // Close chain selector on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (chainSelectorRef.current && !chainSelectorRef.current.contains(e.target as Node)) {
+        setChainSelectorOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // When chain changes, reset tokens
+  const handleChainSwitch = useCallback((chainId: number) => {
+    setSelectedChainId(chainId);
+    const newTokens = getTokensForChain(chainId);
+    setFromToken(newTokens[0]);
+    setToToken(newTokens[1]);
+    setToAmount("");
+    setRate(null);
+    setQuoteData(null);
+    setChainSelectorOpen(false);
+    if (isConnected) {
+      switchChain?.({ chainId });
+    }
+  }, [isConnected, switchChain]);
 
   // Compute price impact from quote data
   const priceImpact = (() => {
@@ -329,7 +402,7 @@ const SwapWidget = () => {
           sellToken: fromToken.address,
           buyToken: toToken.address,
           sellAmount,
-          chainId: 1,
+          chainId: selectedChainId,
           ...(address && { taker: address }),
         },
       });
@@ -390,7 +463,7 @@ const SwapWidget = () => {
           sellToken: fromToken.address,
           buyToken: toToken.address,
           sellAmount,
-          chainId: 1,
+          chainId: selectedChainId,
           taker: address,
         },
       });
@@ -489,64 +562,108 @@ const SwapWidget = () => {
           {/* Header with settings */}
           <div className="flex items-center justify-between mb-4">
             <span className="font-mono font-semibold text-foreground text-sm">Swap</span>
-            <div className="relative" ref={settingsRef}>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className={`p-2 rounded-lg transition-all ${showSettings ? "bg-primary/15 text-primary" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
-              >
-                <Settings2 className="w-4 h-4" />
-              </button>
-              {showSettings && (
-                <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="text-sm font-mono font-semibold text-foreground mb-3">Slippage Toleranz</div>
-                  <div className="flex items-center gap-2 mb-3">
-                    {SLIPPAGE_PRESETS.map((preset) => (
+            <div className="flex items-center gap-2">
+              {/* Chain Selector */}
+              <div className="relative" ref={chainSelectorRef}>
+                <button
+                  onClick={() => setChainSelectorOpen(!chainSelectorOpen)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
+                    chainSelectorOpen ? "bg-primary/15 border-primary/30 text-primary" : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <div
+                    className="w-4 h-4 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: supportedChains.find(c => c.id === selectedChainId)?.color || 'hsl(220, 60%, 55%)' }}
+                  >
+                    <Globe className="w-2.5 h-2.5 text-primary-foreground" />
+                  </div>
+                  {supportedChains.find(c => c.id === selectedChainId)?.name || 'Ethereum'}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${chainSelectorOpen ? "rotate-180" : ""}`} />
+                </button>
+                {chainSelectorOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-card border border-border rounded-xl shadow-2xl z-50 p-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
+                    {supportedChains.map((c) => (
                       <button
-                        key={preset}
-                        onClick={() => { setSlippage(preset); setCustomSlippage(""); }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
-                          slippage === preset && !customSlippage
-                            ? "bg-primary/15 border-primary/30 text-primary"
-                            : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                        key={c.id}
+                        onClick={() => handleChainSwitch(c.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-mono transition-all ${
+                          c.id === selectedChainId
+                            ? "bg-primary/10 text-primary border border-primary/20"
+                            : "hover:bg-muted/50 text-muted-foreground hover:text-foreground border border-transparent"
                         }`}
                       >
-                        {preset}%
+                        <div
+                          className="w-5 h-5 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: c.color }}
+                        >
+                          <Globe className="w-3 h-3 text-primary-foreground" />
+                        </div>
+                        <span>{c.name}</span>
+                        {c.id === selectedChainId && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />}
                       </button>
                     ))}
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={customSlippage}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          if (v === "" || SLIPPAGE_RE.test(v)) {
-                            setCustomSlippage(v);
-                            const num = parseFloat(v);
-                            if (num > 0 && num <= 50) setSlippage(num);
-                          }
-                        }}
-                        placeholder="Custom"
-                        className={`w-full py-1.5 px-2 rounded-lg text-xs font-mono border outline-none bg-muted/30 transition-all ${
-                          customSlippage ? "border-primary/30 text-primary" : "border-border text-muted-foreground"
-                        }`}
-                      />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">%</span>
-                    </div>
                   </div>
-                  {slippage > 5 && (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Hohe Slippage — Frontrunning-Risiko</span>
+                )}
+              </div>
+              <div className="relative" ref={settingsRef}>
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-2 rounded-lg transition-all ${showSettings ? "bg-primary/15 text-primary" : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"}`}
+                >
+                  <Settings2 className="w-4 h-4" />
+                </button>
+                {showSettings && (
+                  <div className="absolute right-0 top-full mt-2 w-72 bg-card border border-border rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="text-sm font-mono font-semibold text-foreground mb-3">Slippage Toleranz</div>
+                    <div className="flex items-center gap-2 mb-3">
+                      {SLIPPAGE_PRESETS.map((preset) => (
+                        <button
+                          key={preset}
+                          onClick={() => { setSlippage(preset); setCustomSlippage(""); }}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-medium border transition-all ${
+                            slippage === preset && !customSlippage
+                              ? "bg-primary/15 border-primary/30 text-primary"
+                              : "bg-muted/30 border-border hover:border-primary/20 text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {preset}%
+                        </button>
+                      ))}
+                      <div className="flex-1 relative">
+                        <input
+                          type="text"
+                          value={customSlippage}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "" || SLIPPAGE_RE.test(v)) {
+                              setCustomSlippage(v);
+                              const num = parseFloat(v);
+                              if (num > 0 && num <= 50) setSlippage(num);
+                            }
+                          }}
+                          placeholder="Custom"
+                          className={`w-full py-1.5 px-2 rounded-lg text-xs font-mono border outline-none bg-muted/30 transition-all ${
+                            customSlippage ? "border-primary/30 text-primary" : "border-border text-muted-foreground"
+                          }`}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-mono">%</span>
+                      </div>
                     </div>
-                  )}
-                  {slippage < 0.1 && (
-                    <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
-                      <AlertTriangle className="w-3 h-3" />
-                      <span>Zu niedrig — Transaktion könnte fehlschlagen</span>
-                    </div>
-                  )}
-                </div>
-              )}
+                    {slippage > 5 && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Hohe Slippage — Frontrunning-Risiko</span>
+                      </div>
+                    )}
+                    {slippage < 0.1 && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-400 font-mono">
+                        <AlertTriangle className="w-3 h-3" />
+                        <span>Zu niedrig — Transaktion könnte fehlschlagen</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -582,6 +699,7 @@ const SwapWidget = () => {
                 onSelect={setFromToken}
                 side="from"
                 walletAddress={address as Address | undefined}
+                tokens={tokens}
               />
             </div>
           </div>
@@ -622,6 +740,7 @@ const SwapWidget = () => {
                 onSelect={setToToken}
                 side="to"
                 walletAddress={address as Address | undefined}
+                tokens={tokens}
               />
             </div>
           </div>
