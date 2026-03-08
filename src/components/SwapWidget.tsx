@@ -319,6 +319,32 @@ const SwapWidget = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Close chain selector on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (chainSelectorRef.current && !chainSelectorRef.current.contains(e.target as Node)) {
+        setChainSelectorOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // When chain changes, reset tokens
+  const handleChainSwitch = useCallback((chainId: number) => {
+    setSelectedChainId(chainId);
+    const newTokens = getTokensForChain(chainId);
+    setFromToken(newTokens[0]);
+    setToToken(newTokens[1]);
+    setToAmount("");
+    setRate(null);
+    setQuoteData(null);
+    setChainSelectorOpen(false);
+    if (isConnected) {
+      switchChain?.({ chainId });
+    }
+  }, [isConnected, switchChain]);
+
   // Compute price impact from quote data
   const priceImpact = (() => {
     if (!quoteData || !fromAmount) return null;
