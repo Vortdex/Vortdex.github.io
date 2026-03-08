@@ -416,7 +416,7 @@ const SwapWidget = () => {
         toToken: toToken.symbol,
         fromAmount,
         toAmount,
-        txHash: typeof txHash === "string" ? txHash : txHash?.hash,
+        txHash: typeof txHash === "string" ? txHash : undefined,
         status: "completed",
         slippage,
       });
