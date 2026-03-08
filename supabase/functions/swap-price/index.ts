@@ -26,25 +26,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    const chainMap: Record<number, string> = {
-      1: 'api.0x.org',
-      42161: 'arbitrum.api.0x.org',
-      137: 'polygon.api.0x.org',
-      10: 'optimism.api.0x.org',
-      8453: 'base.api.0x.org',
-    };
-
     const chain = chainId || 1;
-    const baseUrl = chainMap[chain] || 'api.0x.org';
 
     const params = new URLSearchParams({
+      chainId: String(chain),
       sellToken,
       buyToken,
       sellAmount,
       ...(taker && { taker }),
     });
 
-    const url = `https://${baseUrl}/swap/permit2/price?${params}`;
+    const url = `https://api.0x.org/swap/permit2/price?${params}`;
     console.log('Fetching 0x price:', url);
 
     const response = await fetch(url, {
@@ -55,9 +47,8 @@ Deno.serve(async (req) => {
     });
 
     const text = await response.text();
-    console.log('0x API response status:', response.status, 'body:', text.substring(0, 500));
+    console.log('0x response:', response.status, text.substring(0, 500));
 
-    // Try to parse as JSON, return raw text error if not
     let data;
     try {
       data = JSON.parse(text);
