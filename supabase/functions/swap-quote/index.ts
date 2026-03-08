@@ -26,33 +26,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Map chainId to 0x API subdomain
-    const chainMap: Record<number, string> = {
-      1: 'api.0x.org',
-      42161: 'arbitrum.api.0x.org',
-      137: 'polygon.api.0x.org',
-      10: 'optimism.api.0x.org',
-      8453: 'base.api.0x.org',
-    };
-
     const chain = chainId || 1;
-    const baseUrl = chainMap[chain] || 'api.0x.org';
 
     const params = new URLSearchParams({
+      chainId: String(chain),
       sellToken,
       buyToken,
       sellAmount,
       ...(taker && { taker }),
     });
 
-    const response = await fetch(`https://${baseUrl}/swap/permit2/quote?${params}`, {
+    const url = `https://api.0x.org/swap/permit2/quote?${params}`;
+
+    const response = await fetch(url, {
       headers: {
         '0x-api-key': apiKey,
-        '0x-version': '2',
+        '0x-version': 'v2',
       },
     });
 
-    const data = await response.json();
+    const text = await response.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return new Response(
+        JSON.stringify({ error: `0x API error: ${text.substring(0, 200)}` }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     return new Response(JSON.stringify(data), {
       status: response.status,
