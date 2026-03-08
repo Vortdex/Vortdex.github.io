@@ -1,5 +1,6 @@
 import { Activity } from "lucide-react";
 import WalletButton from "@/components/WalletButton";
+import WorldWalletButton from "@/components/WorldWalletButton";
 
 const Navbar = () => {
   return (
