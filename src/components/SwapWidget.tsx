@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAccount, useBalance, useReadContract, useSendTransaction } from "wagmi";
 import { formatUnits, parseUnits, erc20Abi, type Address } from "viem";
 import { toast } from "sonner";
+import SwapHistory, { addSwapTransaction } from "./SwapHistory";
 
 const NATIVE_ETH = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
@@ -410,6 +411,16 @@ const SwapWidget = () => {
         gasPrice: data.transaction.gasPrice ? BigInt(data.transaction.gasPrice) : undefined,
       });
 
+      addSwapTransaction({
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        fromAmount,
+        toAmount,
+        txHash: typeof txHash === "string" ? txHash : undefined,
+        status: "completed",
+        slippage,
+      });
+
       toast.success(
         <div className="font-mono text-sm">
           <div className="font-bold text-primary">Swap erfolgreich! ✓</div>
@@ -424,6 +435,14 @@ const SwapWidget = () => {
       setToAmount("");
       setQuoteData(null);
     } catch (err: any) {
+      addSwapTransaction({
+        fromToken: fromToken.symbol,
+        toToken: toToken.symbol,
+        fromAmount,
+        toAmount,
+        status: "failed",
+        slippage,
+      });
       const msg = err.shortMessage || err.message || "Swap fehlgeschlagen";
       setError(msg);
       toast.error(msg);
@@ -701,9 +720,11 @@ const SwapWidget = () => {
             onClick={buttonState.action}
             className="w-full mt-4 py-4 rounded-xl bg-primary text-primary-foreground font-mono font-bold text-lg hover:shadow-[0_0_40px_hsl(160_100%_50%/0.3)] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {(swapping || approving) && <Loader2 className="w-5 h-5 animate-spin" />}
+          {(swapping || approving) && <Loader2 className="w-5 h-5 animate-spin" />}
             {buttonState.label}
           </button>
+
+          <SwapHistory />
         </div>
       </div>
     </section>
