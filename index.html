@@ -3,35 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FusionDexVortex Application</title>
+    <title>FusionDexVortex - Landing Page</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background: #008CBA;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+        }
+        section {
+            padding: 20px;
+            margin: 10px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        footer {
+            text-align: center;
+            padding: 10px;
+            background: #008CBA;
+            color: white;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+        .features {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+        }
+        .feature {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin: 10px;
+            flex-basis: 30%;
+        }
+        @media (max-width: 600px) {
+            .feature {
+                flex-basis: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
-        <nav>
-            <ul>
-                <li><a href="#features">Features</a></li>
-                <li><a href="#content">Content</a></li>
-                <li><a href="#about">About</a></li>
-            </ul>
-        </nav>
+        <h1>Welcome to FusionDexVortex</h1>
+        <p>Your gateway to a decentralized future.</p>
     </header>
-    <main>
-        <section id="features">
-            <h1>Features</h1>
-            <p>Welcome to the FusionDexVortex application! Here are some of the amazing features...</p>
-        </section>
-        <section id="content">
-            <h1>Content</h1>
-            <p>This section will contain various content...</p>
-        </section>
-        <section id="about">
-            <h1>About</h1>
-            <p>This application is designed to...</p>
-        </section>
-    </main>
+    <section>
+        <h2>Features</h2>
+        <div class="features">
+            <div class="feature">
+                <h3>Feature 1</h3>
+                <p>Explore the cutting edge of decentralized technology with our robust platform.</p>
+            </div>
+            <div class="feature">
+                <h3>Feature 2</h3>
+                <p>Seamless user experience that empowers everyone to engage with blockchain easily.</p>
+            </div>
+            <div class="feature">
+                <h3>Feature 3</h3>
+                <p>Secure and fast transactions with our impeccable infrastructure.</p>
+            </div>
+        </div>
+    </section>
     <footer>
-        <p>&copy; 2026 Vortdex. All rights reserved.</p>
+        <p>&copy; 2026 FusionDexVortex. All rights reserved.</p>
     </footer>
 </body>
 </html>
